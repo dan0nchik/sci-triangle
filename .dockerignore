@@ -1,0 +1,33 @@
+# Build context is the repo root (see deploy/docker-compose.prod.yml).
+# Keep images small and never leak secrets/data into layers.
+.git
+.gitignore
+.env
+*.env
+!.env.example
+
+# virtualenvs / caches
+.venv
+.venv-*
+**/__pycache__
+**/*.pyc
+.pytest_cache
+**/.pytest_cache
+
+# node / build artifacts (UI build runs npm ci inside the image)
+frontend/node_modules
+frontend/dist
+**/node_modules
+
+# large data / runtime volumes — never needed for image builds
+volumes
+data
+corpus
+graph
+*.sqlite
+corpus_scan_probe.json
+
+# docs / misc
+docs
+*.md
+!backend/README.md

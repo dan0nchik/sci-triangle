@@ -1,0 +1,401 @@
+# sci-tangle — eval-set направления F (QA/Evaluation)
+# ---------------------------------------------------------------------------
+# Формат кейса:
+#   id:            уникальный идентификатор (f01…)
+#   query:         запрос на русском (основной)
+#   query_en:      англоязычный вариант (опционально; прогоняется отдельным рядом)
+#   class:         lookup | review | compare | aggregate | gap | adversarial
+#   expected:
+#     must_mention_docs:   паттерны-подстроки (регистронезависимо), матчатся по
+#                          filename + title процитированных документов.
+#                          hit = найден ≥1 паттерн.
+#     must_contain_numbers: числа, которые обязаны присутствовать в answer_md
+#                          (без эха запроса) или в цитатах (толерантно к ,/.)
+#     must_have_citations: bool — ответ обязан содержать ≥1 цитату.
+#     expect_empty:        bool — запрос вне корпуса; система обязана честно
+#                          сказать «не найдено» и НЕ возвращать цитат.
+#
+# РЕВИЗИЯ 2 (по реальному корпусу, 403 документа):
+#   - паттерны выверены по corpus/documents.jsonl (реальные имена файлов:
+#     «Обзор технических решений…», «CM_06_15.pdf», «ЦМ № 09-23.pdf» и т.п.);
+#   - числа проверены дословным поиском по corpus/chunks.jsonl — числа из
+#     fixture-легенды (1,2 м³/ч; 92,5 %; «сухой остаток 1000») заменены на
+#     реально существующие в корпусе (1250–1350 °C в d000097; 1,9/4,5/5,8 м³/ч
+#     в d000381; 6 л/час в d000080; 67,1/25,1 мг/л в d000275);
+#   - паттерны добавлялись ТОЛЬКО для документов, релевантных запросу по
+#     смыслу (проверено по цитируемым фрагментам вручную), а не «под ответ
+#     ретривала». Нерелевантные цитаты — баг-репорты для R, не паттерны.
+# ---------------------------------------------------------------------------
+
+queries:
+
+  # ======================= GOLDEN QUERIES (§3) =======================
+  - id: f01
+    query: "Методы обессоливания воды для обогатительной фабрики: сульфаты и хлориды 200–300 мг/л, сухой остаток не выше 1000 мг/дм³"
+    query_en: "Water desalination methods for a concentration plant: sulfates and chlorides 200–300 mg/l, dry residue below 1000 mg/dm3"
+    class: review
+    expected:
+      # d000057 Методы очистки шахтных вод.docx; d000275 CM_05_15 (стоки, сульфат/хлорид-ионы);
+      # d000327 ЦМ № 10-2019 (очистка воды известью/флотацией)
+      must_mention_docs: ["очистки шахтных", "обессолив", "CM_05_15", "ЦМ № 10-2019"]
+      must_contain_numbers: []
+      must_have_citations: true
+      expect_empty: false
+
+  - id: f02
+    query: "Циркуляция католита при электроэкстракции никеля: технические решения и оптимальная скорость потока"
+    query_en: "Catholyte circulation in nickel electrowinning: technical solutions and optimal flow rate"
+    class: lookup
+    expected:
+      # d000080 Обзор технических решений в области электролитического производства никеля и меди.docx;
+      # d000276 CM_06_15 (электроэкстракция Ni, диафрагменные ткани, католит);
+      # d000381 ЦМ № 09-23 (циркуляция м³/ч при ЭЭ на Кольской ГМК)
+      must_mention_docs: ["электролитического производства никеля", "CM_06_15", "ЦМ № 09-23", "католит"]
+      must_contain_numbers: ["1,9"]   # м³/ч, таблица режимов в d000381 (ЦМ № 09-23)
+      must_have_citations: true
+      expect_empty: false
+
+  - id: f03
+    query: "Эксперименты и публикации по распределению золота, серебра и МПГ между штейном и шлаком за последние 5 лет"
+    query_en: "Experiments and papers on distribution of Au, Ag and PGM between matte and slag over the last 5 years"
+    class: aggregate
+    expected:
+      # d000097 Распределение Au, Ag и МПГ между меднымникелевым штейном и шлаком.docx;
+      # d000065 ОИ-2-2016 Извлечение благородных металлов из шламов и шлаков
+      must_mention_docs: ["Распределение Au", "штейном и шлаком", "благородных металлов из шламов"]
+      must_contain_numbers: ["1250"]  # 1250–1350 °C, d000097_c0007 (распределение Ag штейн/шлак)
+      must_have_citations: true
+      expect_empty: false
+
+  - id: f04
+    query: "Закачка шахтных вод в глубокие горизонты: сравнение российской и зарубежной практики и технико-экономические показатели"
+    query_en: "Deep-well injection of mine waters: Russian versus foreign practice and techno-economic indicators"
+    class: compare
+    expected:
+      # выделенного обзора по закачке в корпусе нет; ближайшие релевантные —
+      # d000057 (методы очистки/утилизации шахтных вод, КДВ) и упоминания закачки
+      must_mention_docs: ["очистки шахтных", "шахтных вод", "закачк"]
+      must_contain_numbers: []
+      must_have_citations: true
+      expect_empty: false
+
+  # ======================= LOOKUP =======================
+  - id: f05
+    query: "Хлорное выщелачивание медно-никелевого сырья: условия и показатели процесса"
+    class: lookup
+    expected:
+      # d000116 Хлорное выщелачивание ОИП 02-2024.docx; «19 Статья по хлорированию»;
+      # d000361 ЦМ 12_21 (хлорное выщелачивание никелевого порошка)
+      must_mention_docs: ["хлорное выщелачивани", "хлорирован", "ЦМ 12_21"]
+      must_contain_numbers: []
+      must_have_citations: true
+      expect_empty: false
+
+  - id: f06
+    query: "Флотация шлаков медеплавильного производства: отечественный и зарубежный опыт"
+    class: lookup
+    expected:
+      # d000040 Зарубежный и отечественный опыт флотации шлаков…; d000088 Переработка Cu-Ni шлаков (2024);
+      # d000373 ЦМ № 01-23 (кинетика измельчения медеплавильных шлаков, флотация)
+      must_mention_docs: ["флотации шлаков", "Cu-Ni шлаков", "ЦМ № 01-23"]
+      must_contain_numbers: []
+      must_have_citations: true
+      expect_empty: false
+
+  - id: f07
+    query: "Вдувание дисперсного сырья в ванну расплава"
+    class: lookup
+    expected:
+      must_mention_docs: ["вдувание дисперсного", "диспергирован"]
+      must_contain_numbers: []
+      must_have_citations: true
+      expect_empty: false
+
+  - id: f08
+    query: "Способы получения катодных материалов с никелем и кобальтом для литий-ионных батарей"
+    query_en: "Methods of producing nickel-cobalt cathode materials for lithium-ion batteries"
+    class: lookup
+    expected:
+      # d000066 ОИП-03-2021 (…для ЛИБ); d000185 (натрирование прекурсоров КМ);
+      # d000148 Статья Косов Я.И. (NMC для ЛИА)
+      must_mention_docs: ["катодных материалов", "NMC", "литий-ион"]
+      must_contain_numbers: []
+      must_have_citations: true
+      expect_empty: false
+
+  - id: f09
+    query: "Измерение напряжённо-деформированного состояния массива горных пород (НДС), геомеханика рудников"
+    class: lookup
+    expected:
+      # d000007 НДС Комсомольский; d000010 Презентация Измерение НДС Техсовет;
+      # d000013/d000015 (геомеханика)
+      must_mention_docs: ["НДС", "геомехан", "напряжен", "разгрузки керна"]
+      must_contain_numbers: []
+      must_have_citations: true
+      expect_empty: false
+
+  - id: f10
+    query: "Применение синтетического ангидрита в закладочных смесях"
+    class: lookup
+    expected:
+      # d000092, d000068, d000164 (ангидрит из техногенного гипса)
+      must_mention_docs: ["ангидрит"]
+      must_contain_numbers: []
+      must_have_citations: true
+      expect_empty: false
+
+  - id: f11
+    query: "Оптимальная скорость циркуляции католита при электроэкстракции никеля в диафрагменной ячейке"
+    class: lookup
+    expected:
+      must_mention_docs: ["электролитического производства никеля", "CM_06_15", "католит"]
+      # d000080_c0007: «скорость перекачки 6 л/час» (диафрагменная ячейка, Ni 106 г/л, 57 °C)
+      must_contain_numbers: ["6 л/час"]
+      must_have_citations: true
+      expect_empty: false
+
+  # ======================= REVIEW =======================
+  - id: f12
+    query: "Обзор технологий получения сульфатов никеля и кобальта"
+    class: review
+    expected:
+      # d000067 ОИП-01-2022 Обзор существующих технологий получения сульфатов никеля и кобальта.docx
+      must_mention_docs: ["сульфатов никеля и кобальта", "сульфата никеля"]
+      must_contain_numbers: []
+      must_have_citations: true
+      expect_empty: false
+
+  - id: f13
+    query: "Какие существуют методы очистки шахтных вод от сульфатов?"
+    query_en: "What methods exist for treating mine waters to remove sulfates?"
+    class: review
+    expected:
+      # d000057; d000328 ЦМ № 11-2019 (расходы реагентов при очистке шахтной воды)
+      must_mention_docs: ["очистки шахтных", "ЦМ № 11-2019", "обессолив"]
+      must_contain_numbers: []
+      must_have_citations: true
+      expect_empty: false
+
+  - id: f14
+    query: "Обзор закладочных комплексов и закладочных смесей из хвостов обогащения"
+    class: review
+    expected:
+      # d000043, d000038 Закладочные комплексы 2017, d000037 Закладка_май2018
+      must_mention_docs: ["закладочн", "закладк", "хвостов обогащения"]
+      must_contain_numbers: []
+      must_have_citations: true
+      expect_empty: false
+
+  - id: f15
+    query: "Наилучшие доступные технологии в горно-металлургической отрасли"
+    class: review
+    expected:
+      # d000060 Наилучшие доступные технологии последний вариант 20.08.docx
+      must_mention_docs: ["наилучшие доступные технологии", "НДТ"]
+      must_contain_numbers: []
+      must_have_citations: true
+      expect_empty: false
+
+  - id: f16
+    query: "Обзор мировых проектов производства никеля из бедных сульфидных руд"
+    class: review
+    expected:
+      # d000096 Проекты_переработки_бедных_сульфидных_руд.pdf; d000070 ОИП-04-2019;
+      # d000063 Новые проекты производства никеля…
+      must_mention_docs: ["бедных сульфидных", "бедной сульфидной", "новые проекты производства никеля"]
+      must_contain_numbers: []
+      must_have_citations: true
+      expect_empty: false
+
+  # ======================= COMPARE =======================
+  - id: f17
+    query: "Сравнение обратного осмоса и известкового умягчения для обессоливания шахтных вод"
+    query_en: "Comparison of reverse osmosis versus lime softening for mine water desalination"
+    class: compare
+    expected:
+      # d000057 (RO и др. методы); d000275 CM_05_15 (характеристики мембран обратного осмоса)
+      must_mention_docs: ["очистки шахтных", "обессолив", "CM_05_15"]
+      must_contain_numbers: []
+      must_have_citations: true
+      expect_empty: false
+
+  - id: f18
+    query: "Сравнение российской и зарубежной практики флотации шлаков медеплавильного производства"
+    class: compare
+    expected:
+      must_mention_docs: ["флотации шлаков", "ЦМ № 01-23"]
+      must_contain_numbers: []
+      must_have_citations: true
+      expect_empty: false
+
+  - id: f19
+    query: "Сравнение технологий получения сульфата никеля: гидрометаллургия против пирометаллургии"
+    class: compare
+    expected:
+      must_mention_docs: ["сульфатов никеля и кобальта", "сульфата никеля"]
+      must_contain_numbers: []
+      must_have_citations: true
+      expect_empty: false
+
+  - id: f20
+    query: "Сравнение российского и зарубежного опыта складирования руды при открытой добыче"
+    class: compare
+    expected:
+      # d000039 Зарубежная практика складирования руды при открытой добыче как метод усреднения.pdf
+      must_mention_docs: ["складирования руды"]
+      must_contain_numbers: []
+      must_have_citations: true
+      expect_empty: false
+
+  - id: f21
+    query: "Сравнение параметров электроэкстракции меди в разных технологических режимах"
+    class: compare
+    expected:
+      # d000072 ОИП-05-2019 Параметры Cu EW.docx; d000381 ЦМ № 09-23 (ванны переточного типа);
+      # d000177 (поведение Se/Te при ЭЭ меди)
+      must_mention_docs: ["Параметры Cu EW", "электроэкстракции меди", "ЦМ № 09-23"]
+      must_contain_numbers: []
+      must_have_citations: true
+      expect_empty: false
+
+  # ======================= AGGREGATE =======================
+  - id: f22
+    query: "Сколько документов в корпусе посвящено переработке кубинских латеритных руд (Пунта-Горда, Куба)?"
+    class: aggregate
+    expected:
+      # d000047 Куба_ПунтаГорда_2018.docx; d000048 Куба_Хром_2012; d000049 Куба_железо_2012
+      must_mention_docs: ["куба", "пунтагорда"]
+      must_contain_numbers: []
+      must_have_citations: true
+      expect_empty: false
+
+  - id: f23
+    query: "Динамика публикаций по глубоким рудникам и подземной разработке по годам"
+    class: aggregate
+    expected:
+      # d000036 Глубокие рудники_2017.pdf; d000046 (подземный комплекс)
+      must_mention_docs: ["глубокие рудники", "подземн"]
+      must_contain_numbers: []
+      must_have_citations: true
+      expect_empty: false
+
+  - id: f24
+    query: "Распределение потерь платиноидов и благородных металлов со шлаком в зависимости от температуры плавки"
+    class: aggregate
+    expected:
+      # d000097; d000065; d000390 ЦМ № 05-24 (деформированность корольков vs температура);
+      # d000156 «36 Статья_Готовая» (потери благородных при окислительной плавке)
+      must_mention_docs: ["штейном и шлаком", "Распределение Au", "благородн", "ЦМ № 05-24"]
+      must_contain_numbers: ["1250"]
+      must_have_citations: true
+      expect_empty: false
+
+  - id: f25
+    query: "Обзор ведущих мировых производителей никеля, меди, кобальта и МПГ"
+    class: aggregate
+    expected:
+      # d000034 Ведущие производители Ni, Cu,Co и МПГ.pdf
+      must_mention_docs: ["ведущие производители"]
+      must_contain_numbers: []
+      must_have_citations: true
+      expect_empty: false
+
+  # ======================= GAP =======================
+  - id: f26
+    query: "Какие процессы в корпусе описаны без числовых условий и измеренных параметров (пробелы в данных)?"
+    class: gap
+    expected:
+      must_mention_docs: []
+      must_contain_numbers: []
+      must_have_citations: false
+      expect_empty: false
+
+  - id: f27
+    query: "Есть ли данные по озонированию сточных вод горно-металлургических предприятий?"
+    class: gap
+    expected:
+      # d000109 ТИ Озонирование промышленных стоков.docx
+      must_mention_docs: ["озонирован", "стоков", "очистки шахтных"]
+      must_contain_numbers: []
+      must_have_citations: false
+      expect_empty: false
+
+  - id: f28
+    query: "Пробелы в данных по цианидному выщелачиванию МПГ: что отсутствует в корпусе?"
+    class: gap
+    expected:
+      # d000117 Цианидное выщелачивание МПГ.docx
+      must_mention_docs: ["цианидное выщелачивание", "МПГ"]
+      must_contain_numbers: []
+      must_have_citations: false
+      expect_empty: false
+
+  # ======================= ADVERSARIAL (вне корпуса) =======================
+  - id: f29
+    query: "Выплавка алюминия электролизом Холла—Эру на заводах Исландии: расход электроэнергии и экология"
+    query_en: "Aluminium smelting by the Hall–Héroult electrolysis process at Icelandic plants: energy consumption and ecology"
+    class: adversarial
+    expected:
+      must_mention_docs: []
+      must_contain_numbers: []
+      must_have_citations: false
+      expect_empty: true
+
+  - id: f30
+    query: "Технология производства кремниевых солнечных панелей методом Чохральского"
+    class: adversarial
+    expected:
+      must_mention_docs: []
+      must_contain_numbers: []
+      must_have_citations: false
+      expect_empty: true
+
+  - id: f31
+    query: "Селекционное разведение молочного крупного рогатого скота голштинской породы в Новой Зеландии"
+    class: adversarial
+    expected:
+      must_mention_docs: []
+      must_contain_numbers: []
+      must_have_citations: false
+      expect_empty: true
+
+  - id: f32
+    query: "Оптимизация трансформеров для больших языковых моделей на GPU-кластерах"
+    query_en: "Optimizing transformer architectures for large language models on GPU clusters"
+    class: adversarial
+    expected:
+      must_mention_docs: []
+      must_contain_numbers: []
+      must_have_citations: false
+      expect_empty: true
+
+  - id: f33
+    query: "Ферментация винограда сорта пино-нуар при производстве бургундского вина"
+    class: adversarial
+    expected:
+      must_mention_docs: []
+      must_contain_numbers: []
+      must_have_citations: false
+      expect_empty: true
+
+  # ======================= доп. числовые строгие =======================
+  - id: f34
+    query: "В каком диапазоне температур изучалось распределение серебра между штейном и железосиликатным шлаком?"
+    query_en: "In what temperature range was silver distribution between matte and iron-silicate slag studied?"
+    class: lookup
+    expected:
+      # d000097_c0007: «…между штейном и железосиликатным шлаком … при 1250-1350°С…»
+      must_mention_docs: ["Распределение Au", "штейном и шлаком"]
+      must_contain_numbers: ["1250", "1350"]
+      must_have_citations: true
+      expect_empty: false
+
+  - id: f35
+    query: "Состав очищенных стоков цинкового завода: содержание сульфат-ионов и хлорид-ионов"
+    class: lookup
+    expected:
+      # d000275 CM_05_15: «Сульфат-ионы 67,1 Хлорид ионы 25,1 рН 7–8» (стоки ЧЦЗ)
+      must_mention_docs: ["CM_05_15"]
+      must_contain_numbers: ["67,1", "25,1"]
+      must_have_citations: true
+      expect_empty: false

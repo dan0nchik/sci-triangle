@@ -1,0 +1,15 @@
+fastapi==0.115.6
+uvicorn[standard]==0.34.0
+pydantic==2.10.4
+neo4j==5.27.0
+elasticsearch==8.15.1
+httpx==0.28.1
+python-dotenv==1.0.1
+pytest==8.3.4
+PyJWT==2.10.1
+# --- C-platform (C13–C18) ---
+python-jose[cryptography]==3.5.0   # JWT (RBAC/ABAC)
+structlog==26.1.0                  # JSON-логи / наблюдаемость
+openpyxl==3.1.5                    # xlsx-экспорт compare-таблиц
+Markdown==3.10.2                   # md -> HTML для pdf-экспорта
+weasyprint==69.0                   # pdf-экспорт (fallback: reportlab/HTML, см. exporters.py)

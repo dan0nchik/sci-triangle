@@ -1,0 +1,1523 @@
+{
+  "meta": {
+    "api_base": "http://localhost:8000",
+    "eval_path": "/Users/danonchik/dev/nornikel-hack-26/qa/eval_set.yaml",
+    "n_cases": 35,
+    "n_rows": 45,
+    "health": {
+      "status": "ok",
+      "neo4j": "ok",
+      "es": "ok",
+      "llm": "ok",
+      "corpus_docs": 403,
+      "graph_nodes": 7568,
+      "llm_usage": {
+        "completion_requests": 0,
+        "completion_input_tokens": 0,
+        "completion_output_tokens": 0,
+        "completion_total_tokens": 0,
+        "embedding_requests": 0,
+        "embedding_tokens": 0,
+        "retries": 0,
+        "rate_limit_hits": 0
+      },
+      "time": "2026-07-03T20:34:58.827728+00:00"
+    },
+    "run_at": "2026-07-03T23:44:23"
+  },
+  "summary": {
+    "n_rows": 45,
+    "n_errors": 2,
+    "retrieval_hit_rate_pct": 71.4,
+    "doc_recall_avg": 0.481,
+    "number_accuracy_pct": 36.4,
+    "number_recall_avg": 0.455,
+    "citation_rate_pct": 100.0,
+    "honesty_rate_pct": 100.0,
+    "latency_p50_ms": 9197.3,
+    "latency_p95_ms": 19399.5,
+    "latency_max_ms": 50973.9
+  },
+  "by_class": {
+    "adversarial": {
+      "n": 7,
+      "retrieval_hit_rate_pct": null,
+      "number_accuracy_pct": null,
+      "citation_rate_pct": null,
+      "honesty_rate_pct": 100.0
+    },
+    "aggregate": {
+      "n": 6,
+      "retrieval_hit_rate_pct": 83.3,
+      "number_accuracy_pct": 33.3,
+      "citation_rate_pct": 100.0,
+      "honesty_rate_pct": null
+    },
+    "compare": {
+      "n": 8,
+      "retrieval_hit_rate_pct": 62.5,
+      "number_accuracy_pct": null,
+      "citation_rate_pct": 100.0,
+      "honesty_rate_pct": null
+    },
+    "gap": {
+      "n": 3,
+      "retrieval_hit_rate_pct": 100.0,
+      "number_accuracy_pct": null,
+      "citation_rate_pct": null,
+      "honesty_rate_pct": null
+    },
+    "lookup": {
+      "n": 13,
+      "retrieval_hit_rate_pct": 66.7,
+      "number_accuracy_pct": 33.3,
+      "citation_rate_pct": 100.0,
+      "honesty_rate_pct": null
+    },
+    "review": {
+      "n": 8,
+      "retrieval_hit_rate_pct": 71.4,
+      "number_accuracy_pct": 50.0,
+      "citation_rate_pct": 100.0,
+      "honesty_rate_pct": null
+    }
+  },
+  "rows": [
+    {
+      "id": "f01",
+      "lang": "ru",
+      "class": "review",
+      "query": "Методы обессоливания воды для обогатительной фабрики: сульфаты и хлориды 200–300 мг/л, сухой остаток не выше 1000 мг/дм³",
+      "latency_ms": 2392.4,
+      "took_ms": 2383,
+      "n_citations": 6,
+      "confidence": {
+        "overall": "high",
+        "n_high": 16,
+        "n_medium": 0,
+        "n_low": 0,
+        "note": null
+      },
+      "doc_hit": true,
+      "doc_recall": 0.33,
+      "doc_matched": [
+        "очистки шахтных"
+      ],
+      "doc_missed": [
+        "обессолив",
+        "обессоливан"
+      ],
+      "num_ok": false,
+      "num_recall": 0.5,
+      "num_missing": [
+        "1000"
+      ],
+      "citation_ok": true,
+      "expect_empty": false,
+      "honest": null,
+      "said_not_found": null,
+      "answer_head": "В предоставленных доказательствах нет информации о методах обессоливания воды для обогатительной фабрики, в том числе для удаления сульфатов и хлоридов в заданных концентрациях. [1",
+      "error": null
+    },
+    {
+      "id": "f01",
+      "lang": "en",
+      "class": "review",
+      "query": "Water desalination methods for a concentration plant: sulfates and chlorides 200–300 mg/l, dry residue below 1000 mg/dm3",
+      "latency_ms": 9944.7,
+      "took_ms": 9935,
+      "n_citations": 6,
+      "confidence": {
+        "overall": "high",
+        "n_high": 15,
+        "n_medium": 0,
+        "n_low": 0,
+        "note": null
+      },
+      "doc_hit": false,
+      "doc_recall": 0.0,
+      "doc_matched": [],
+      "doc_missed": [
+        "обессолив",
+        "очистки шахтных",
+        "обессоливан"
+      ],
+      "num_ok": true,
+      "num_recall": 1.0,
+      "num_missing": [],
+      "citation_ok": true,
+      "expect_empty": false,
+      "honest": null,
+      "said_not_found": null,
+      "answer_head": "Обратный осмос [6] эффективно снижает концентрацию сульфатов в шахтной воде до уровня ниже 300 мг/л при сухом остатке ≤1000 мг/дм³.",
+      "error": null
+    },
+    {
+      "id": "f02",
+      "lang": "ru",
+      "class": "lookup",
+      "query": "Циркуляция католита при электроэкстракции никеля: технические решения и оптимальная скорость потока",
+      "latency_ms": 3622.7,
+      "took_ms": 3613,
+      "n_citations": 6,
+      "confidence": {
+        "overall": "high",
+        "n_high": 12,
+        "n_medium": 0,
+        "n_low": 0,
+        "note": null
+      },
+      "doc_hit": false,
+      "doc_recall": 0.0,
+      "doc_matched": [],
+      "doc_missed": [
+        "католит",
+        "circulation",
+        "Параметры Cu EW"
+      ],
+      "num_ok": false,
+      "num_recall": 0.0,
+      "num_missing": [
+        "1,2",
+        "92,5"
+      ],
+      "citation_ok": true,
+      "expect_empty": false,
+      "honest": null,
+      "said_not_found": null,
+      "answer_head": "В представленных доказательствах нет информации о технических решениях для циркуляции католита при электроэкстракции никеля и оптимальной скорости потока. [1-6]",
+      "error": null
+    },
+    {
+      "id": "f02",
+      "lang": "en",
+      "class": "lookup",
+      "query": "Catholyte circulation in nickel electrowinning: technical solutions and optimal flow rate",
+      "latency_ms": 4845.0,
+      "took_ms": 4836,
+      "n_citations": 6,
+      "confidence": {
+        "overall": "high",
+        "n_high": 12,
+        "n_medium": 0,
+        "n_low": 0,
+        "note": null
+      },
+      "doc_hit": false,
+      "doc_recall": 0.0,
+      "doc_matched": [],
+      "doc_missed": [
+        "католит",
+        "circulation",
+        "Параметры Cu EW"
+      ],
+      "num_ok": false,
+      "num_recall": 0.0,
+      "num_missing": [
+        "1,2",
+        "92,5"
+      ],
+      "citation_ok": true,
+      "expect_empty": false,
+      "honest": null,
+      "said_not_found": null,
+      "answer_head": "В предоставленных доказательствах нет информации о технических решениях для циркуляции католита при электровыводе никеля или об оптимальных скоростях потока. [1-6]",
+      "error": null
+    },
+    {
+      "id": "f03",
+      "lang": "ru",
+      "class": "aggregate",
+      "query": "Эксперименты и публикации по распределению золота, серебра и МПГ между штейном и шлаком за последние 5 лет",
+      "latency_ms": 7861.4,
+      "took_ms": 7853,
+      "n_citations": 6,
+      "confidence": {
+        "overall": "high",
+        "n_high": 12,
+        "n_medium": 0,
+        "n_low": 0,
+        "note": null
+      },
+      "doc_hit": true,
+      "doc_recall": 0.75,
+      "doc_matched": [
+        "штейн",
+        "МПГ",
+        "шлак"
+      ],
+      "doc_missed": [
+        "благородных металлов из шламов"
+      ],
+      "num_ok": false,
+      "num_recall": 0.0,
+      "num_missing": [
+        "1250"
+      ],
+      "citation_ok": true,
+      "expect_empty": false,
+      "honest": null,
+      "said_not_found": null,
+      "answer_head": "В предоставленных доказательствах нет информации об экспериментах и публикациях по распределению золота, серебра и МПГ между штейном и шлаком за последние 5 лет. [1] Упоминается ра",
+      "error": null
+    },
+    {
+      "id": "f03",
+      "lang": "en",
+      "class": "aggregate",
+      "query": "Experiments and papers on distribution of Au, Ag and PGM between matte and slag over the last 5 years",
+      "latency_ms": 12476.4,
+      "took_ms": 12467,
+      "n_citations": 6,
+      "confidence": {
+        "overall": "high",
+        "n_high": 12,
+        "n_medium": 0,
+        "n_low": 0,
+        "note": null
+      },
+      "doc_hit": true,
+      "doc_recall": 0.75,
+      "doc_matched": [
+        "штейн",
+        "МПГ",
+        "шлак"
+      ],
+      "doc_missed": [
+        "благородных металлов из шламов"
+      ],
+      "num_ok": true,
+      "num_recall": 1.0,
+      "num_missing": [],
+      "citation_ok": true,
+      "expect_empty": false,
+      "honest": null,
+      "said_not_found": null,
+      "answer_head": "1. Исследования распределения благородных металлов между штейном и шлаком проводились в 2015 и 2016 годах [1]. 2. В статье 2016 года K. Avarmaa, H. Johto, P. Taskinen изучали распр",
+      "error": null
+    },
+    {
+      "id": "f04",
+      "lang": "ru",
+      "class": "compare",
+      "query": "Закачка шахтных вод в глубокие горизонты: сравнение российской и зарубежной практики и технико-экономические показатели",
+      "latency_ms": 6306.1,
+      "took_ms": 6299,
+      "n_citations": 6,
+      "confidence": {
+        "overall": "high",
+        "n_high": 2,
+        "n_medium": 0,
+        "n_low": 0,
+        "note": null
+      },
+      "doc_hit": false,
+      "doc_recall": 0.0,
+      "doc_matched": [],
+      "doc_missed": [
+        "deep-well",
+        "injection",
+        "шахтных вод",
+        "очистки шахтных"
+      ],
+      "num_ok": null,
+      "num_recall": null,
+      "num_missing": [],
+      "citation_ok": true,
+      "expect_empty": false,
+      "honest": null,
+      "said_not_found": null,
+      "answer_head": "|Параметр|Россия|Мир/зарубеж| |-------|-------|-------| |\t—\t|\t—\t|\t—\t\t|  Доказательств для сравнения российской и зарубежной практики закачки шахтных вод в глубокие горизонты и техн",
+      "error": null
+    },
+    {
+      "id": "f04",
+      "lang": "en",
+      "class": "compare",
+      "query": "Deep-well injection of mine waters: Russian versus foreign practice and techno-economic indicators",
+      "latency_ms": 11557.1,
+      "took_ms": 11549,
+      "n_citations": 5,
+      "confidence": {
+        "overall": "medium",
+        "n_high": 0,
+        "n_medium": 0,
+        "n_low": 0,
+        "note": null
+      },
+      "doc_hit": false,
+      "doc_recall": 0.0,
+      "doc_matched": [],
+      "doc_missed": [
+        "deep-well",
+        "injection",
+        "шахтных вод",
+        "очистки шахтных"
+      ],
+      "num_ok": null,
+      "num_recall": null,
+      "num_missing": [],
+      "citation_ok": true,
+      "expect_empty": false,
+      "honest": null,
+      "said_not_found": null,
+      "answer_head": "В представленных доказательствах нет информации о методах и технологиях, связанных с deep-well injection of mine waters в российской и зарубежной практике, а также технико-экономич",
+      "error": null
+    },
+    {
+      "id": "f05",
+      "lang": "ru",
+      "class": "lookup",
+      "query": "Хлорное выщелачивание медно-никелевого сырья: условия и показатели процесса",
+      "latency_ms": 7664.4,
+      "took_ms": 7650,
+      "n_citations": 6,
+      "confidence": {
+        "overall": "high",
+        "n_high": 19,
+        "n_medium": 0,
+        "n_low": 0,
+        "note": null
+      },
+      "doc_hit": true,
+      "doc_recall": 0.67,
+      "doc_matched": [
+        "хлорн",
+        "ХВ"
+      ],
+      "doc_missed": [
+        "хлорир"
+      ],
+      "num_ok": null,
+      "num_recall": null,
+      "num_missing": [],
+      "citation_ok": true,
+      "expect_empty": false,
+      "honest": null,
+      "said_not_found": null,
+      "answer_head": "В предоставленных доказательствах нет конкретных условий и показателей процесса хлорного выщелачивания медно-никелевого сырья. Указано только, что хлорная технология имеет преимуще",
+      "error": null
+    },
+    {
+      "id": "f06",
+      "lang": "ru",
+      "class": "lookup",
+      "query": "Флотация шлаков медеплавильного производства: отечественный и зарубежный опыт",
+      "latency_ms": 12529.3,
+      "took_ms": 12520,
+      "n_citations": 6,
+      "confidence": {
+        "overall": "high",
+        "n_high": 12,
+        "n_medium": 0,
+        "n_low": 0,
+        "note": null
+      },
+      "doc_hit": true,
+      "doc_recall": 1.0,
+      "doc_matched": [
+        "флотации шлаков медеплавильного"
+      ],
+      "doc_missed": [],
+      "num_ok": null,
+      "num_recall": null,
+      "num_missing": [],
+      "citation_ok": true,
+      "expect_empty": false,
+      "honest": null,
+      "said_not_found": null,
+      "answer_head": "1. На ряде зарубежных предприятий применяется медленное охлаждение расплавленного шлака, после чего охлаждённый шлак дробится, проходит стадию мокрого измельчения и методом флотаци",
+      "error": null
+    },
+    {
+      "id": "f07",
+      "lang": "ru",
+      "class": "lookup",
+      "query": "Вдувание дисперсного сырья в ванну расплава",
+      "latency_ms": 5681.4,
+      "took_ms": 5673,
+      "n_citations": 2,
+      "confidence": {
+        "overall": "high",
+        "n_high": 2,
+        "n_medium": 0,
+        "n_low": 0,
+        "note": null
+      },
+      "doc_hit": true,
+      "doc_recall": 1.0,
+      "doc_matched": [
+        "вдувание дисперсного"
+      ],
+      "doc_missed": [],
+      "num_ok": null,
+      "num_recall": null,
+      "num_missing": [],
+      "citation_ok": true,
+      "expect_empty": false,
+      "honest": null,
+      "said_not_found": null,
+      "answer_head": "Шихту в окатанном виде загружают через отверстие в своде на поверхность барботируемого шлакового расплава [2]. В расплав через осевую фурму подают обогащённое кислородом воздушное ",
+      "error": null
+    },
+    {
+      "id": "f08",
+      "lang": "ru",
+      "class": "lookup",
+      "query": "Способы получения катодных материалов с никелем и кобальтом для литий-ионных батарей",
+      "error": "timed out",
+      "latency_ms": null,
+      "doc_hit": null,
+      "doc_recall": null,
+      "num_ok": null,
+      "num_recall": null,
+      "citation_ok": null,
+      "honest": null,
+      "n_citations": 0,
+      "answer_head": ""
+    },
+    {
+      "id": "f08",
+      "lang": "en",
+      "class": "lookup",
+      "query": "Methods of producing nickel-cobalt cathode materials for lithium-ion batteries",
+      "latency_ms": 50973.9,
+      "took_ms": 50962,
+      "n_citations": 6,
+      "confidence": {
+        "overall": "high",
+        "n_high": 12,
+        "n_medium": 0,
+        "n_low": 0,
+        "note": null
+      },
+      "doc_hit": true,
+      "doc_recall": 1.0,
+      "doc_matched": [
+        "катодных материалов",
+        "ЛИБ",
+        "NCM",
+        "pCAM"
+      ],
+      "doc_missed": [],
+      "num_ok": null,
+      "num_recall": null,
+      "num_missing": [],
+      "citation_ok": true,
+      "expect_empty": false,
+      "honest": null,
+      "said_not_found": null,
+      "answer_head": "1. Метод совместного осаждения — достаточно отработанный промышленный способ получения NCM и NCA [5]. 2. Метод золь-гель (по литературным данным) [5].  Вывод: для производства нике",
+      "error": null
+    },
+    {
+      "id": "f09",
+      "lang": "ru",
+      "class": "lookup",
+      "query": "Измерение напряжённо-деформированного состояния массива горных пород (НДС), геомеханика рудников",
+      "latency_ms": 15616.7,
+      "took_ms": 15608,
+      "n_citations": 6,
+      "confidence": {
+        "overall": "high",
+        "n_high": 19,
+        "n_medium": 0,
+        "n_low": 0,
+        "note": null
+      },
+      "doc_hit": true,
+      "doc_recall": 0.33,
+      "doc_matched": [
+        "НДС"
+      ],
+      "doc_missed": [
+        "геомехан",
+        "напряжен"
+      ],
+      "num_ok": null,
+      "num_recall": null,
+      "num_missing": [],
+      "citation_ok": true,
+      "expect_empty": false,
+      "honest": null,
+      "said_not_found": null,
+      "answer_head": "Для измерения напряжённо-деформированного состояния массива горных пород применяются методы, включая метод полной разгрузки керна [1][3]. Также используются датчики собственной раз",
+      "error": null
+    },
+    {
+      "id": "f10",
+      "lang": "ru",
+      "class": "lookup",
+      "query": "Применение синтетического ангидрита в закладочных смесях",
+      "latency_ms": 12317.6,
+      "took_ms": 12308,
+      "n_citations": 5,
+      "confidence": {
+        "overall": "high",
+        "n_high": 15,
+        "n_medium": 0,
+        "n_low": 0,
+        "note": null
+      },
+      "doc_hit": true,
+      "doc_recall": 1.0,
+      "doc_matched": [
+        "ангидрит",
+        "синтетического ангидрита"
+      ],
+      "doc_missed": [],
+      "num_ok": null,
+      "num_recall": null,
+      "num_missing": [],
+      "citation_ok": true,
+      "expect_empty": false,
+      "honest": null,
+      "said_not_found": null,
+      "answer_head": "Синтетический ангидрид может применяться в качестве одного из компонентов закладочных смесей для заполнения шахтных выработок [1] [3].",
+      "error": null
+    },
+    {
+      "id": "f11",
+      "lang": "ru",
+      "class": "lookup",
+      "query": "Оптимальная скорость циркуляции католита при электроэкстракции никеля в диафрагменной ячейке",
+      "latency_ms": 9794.8,
+      "took_ms": 9755,
+      "n_citations": 6,
+      "confidence": {
+        "overall": "high",
+        "n_high": 12,
+        "n_medium": 0,
+        "n_low": 0,
+        "note": null
+      },
+      "doc_hit": false,
+      "doc_recall": 0.0,
+      "doc_matched": [],
+      "doc_missed": [
+        "католит",
+        "circulation"
+      ],
+      "num_ok": false,
+      "num_recall": 0.0,
+      "num_missing": [
+        "1,2"
+      ],
+      "citation_ok": true,
+      "expect_empty": false,
+      "honest": null,
+      "said_not_found": null,
+      "answer_head": "В представленных доказательствах нет конкретной информации об оптимальной скорости циркуляции католита при электроэкстракции никеля в диафрагменной ячейке [1-6].",
+      "error": null
+    },
+    {
+      "id": "f12",
+      "lang": "ru",
+      "class": "review",
+      "query": "Обзор технологий получения сульфатов никеля и кобальта",
+      "latency_ms": 24898.7,
+      "took_ms": 24889,
+      "n_citations": 6,
+      "confidence": {
+        "overall": "high",
+        "n_high": 35,
+        "n_medium": 1,
+        "n_low": 0,
+        "note": null
+      },
+      "doc_hit": true,
+      "doc_recall": 0.5,
+      "doc_matched": [
+        "сульфатов никеля и кобальта"
+      ],
+      "doc_missed": [
+        "сульфаты никеля"
+      ],
+      "num_ok": null,
+      "num_recall": null,
+      "num_missing": [],
+      "citation_ok": true,
+      "expect_empty": false,
+      "honest": null,
+      "said_not_found": null,
+      "answer_head": "1. Производство сульфата никеля из разных видов сырья [1]. 2. Рафинирование файнштейна/смешанных сульфидов в аммиачных средах [2]. 3. Технология HPAL (High Pressure Acid Leaching) ",
+      "error": null
+    },
+    {
+      "id": "f13",
+      "lang": "ru",
+      "class": "review",
+      "query": "Какие существуют методы очистки шахтных вод от сульфатов?",
+      "latency_ms": 9197.3,
+      "took_ms": 9187,
+      "n_citations": 6,
+      "confidence": {
+        "overall": "high",
+        "n_high": 16,
+        "n_medium": 0,
+        "n_low": 0,
+        "note": null
+      },
+      "doc_hit": true,
+      "doc_recall": 0.5,
+      "doc_matched": [
+        "очистки шахтных"
+      ],
+      "doc_missed": [
+        "обессолив"
+      ],
+      "num_ok": null,
+      "num_recall": null,
+      "num_missing": [],
+      "citation_ok": true,
+      "expect_empty": false,
+      "honest": null,
+      "said_not_found": null,
+      "answer_head": "1. Традиционная обработка известью [1]. 2. Обратный осмос [1], [5] — снижает концентрацию сульфатов в шахтной воде ниже 300 мг/л при сухом остатке ≤1000 мг/дм³.  Для очистки шахтны",
+      "error": null
+    },
+    {
+      "id": "f13",
+      "lang": "en",
+      "class": "review",
+      "query": "What methods exist for treating mine waters to remove sulfates?",
+      "latency_ms": 7982.3,
+      "took_ms": 7974,
+      "n_citations": 6,
+      "confidence": {
+        "overall": "high",
+        "n_high": 16,
+        "n_medium": 0,
+        "n_low": 0,
+        "note": null
+      },
+      "doc_hit": false,
+      "doc_recall": 0.0,
+      "doc_matched": [],
+      "doc_missed": [
+        "очистки шахтных",
+        "обессолив"
+      ],
+      "num_ok": null,
+      "num_recall": null,
+      "num_missing": [],
+      "citation_ok": true,
+      "expect_empty": false,
+      "honest": null,
+      "said_not_found": null,
+      "answer_head": "Для удаления сульфатов из шахтных вод применяются различные методы, включая обратный осмос [1], [5], который эффективно снижает концентрацию сульфатов до уровня ниже 300 мг/л при с",
+      "error": null
+    },
+    {
+      "id": "f14",
+      "lang": "ru",
+      "class": "review",
+      "query": "Обзор закладочных комплексов и закладочных смесей из хвостов обогащения",
+      "latency_ms": 18015.3,
+      "took_ms": 18006,
+      "n_citations": 6,
+      "confidence": {
+        "overall": "high",
+        "n_high": 21,
+        "n_medium": 0,
+        "n_low": 0,
+        "note": null
+      },
+      "doc_hit": true,
+      "doc_recall": 0.67,
+      "doc_matched": [
+        "закладочн",
+        "хвостов обогащения"
+      ],
+      "doc_missed": [
+        "закладк"
+      ],
+      "num_ok": null,
+      "num_recall": null,
+      "num_missing": [],
+      "citation_ok": true,
+      "expect_empty": false,
+      "honest": null,
+      "said_not_found": null,
+      "answer_head": "1. Использование хвостов обогащения в качестве составляющих закладочных смесей — старая, давно устоявшаяся технология [1]. 2. В СССР хвосты обогащения применялись в качестве состав",
+      "error": null
+    },
+    {
+      "id": "f15",
+      "lang": "ru",
+      "class": "review",
+      "query": "Наилучшие доступные технологии в горно-металлургической отрасли",
+      "error": "timed out",
+      "latency_ms": null,
+      "doc_hit": null,
+      "doc_recall": null,
+      "num_ok": null,
+      "num_recall": null,
+      "citation_ok": null,
+      "honest": null,
+      "n_citations": 0,
+      "answer_head": ""
+    },
+    {
+      "id": "f16",
+      "lang": "ru",
+      "class": "review",
+      "query": "Обзор мировых проектов производства никеля из бедных сульфидных руд",
+      "latency_ms": 13382.1,
+      "took_ms": 13371,
+      "n_citations": 6,
+      "confidence": {
+        "overall": "high",
+        "n_high": 13,
+        "n_medium": 0,
+        "n_low": 0,
+        "note": null
+      },
+      "doc_hit": true,
+      "doc_recall": 0.33,
+      "doc_matched": [
+        "новые проекты производства никеля"
+      ],
+      "doc_missed": [
+        "новые рудники бедной",
+        "бедной сульфидной"
+      ],
+      "num_ok": null,
+      "num_recall": null,
+      "num_missing": [],
+      "citation_ok": true,
+      "expect_empty": false,
+      "honest": null,
+      "said_not_found": null,
+      "answer_head": "В представленных доказательствах упоминаются следующие проекты переработки бедных сульфидных никелевых руд:  1. Turnagain, Канада [2]. 2. Dumont, Канада [2]. 3. Ronnbacken, Швеция ",
+      "error": null
+    },
+    {
+      "id": "f17",
+      "lang": "ru",
+      "class": "compare",
+      "query": "Сравнение обратного осмоса и известкового умягчения для обессоливания шахтных вод",
+      "latency_ms": 7354.2,
+      "took_ms": 7349,
+      "n_citations": 6,
+      "confidence": {
+        "overall": "high",
+        "n_high": 2,
+        "n_medium": 0,
+        "n_low": 1,
+        "note": null
+      },
+      "doc_hit": true,
+      "doc_recall": 0.5,
+      "doc_matched": [
+        "очистки шахтных"
+      ],
+      "doc_missed": [
+        "обессолив"
+      ],
+      "num_ok": null,
+      "num_recall": null,
+      "num_missing": [],
+      "citation_ok": true,
+      "expect_empty": false,
+      "honest": null,
+      "said_not_found": null,
+      "answer_head": "|Параметр|Обратный осмоса|Известковое умягчение| |-------|-------|-------| |\tСелективность мембран\t|\t99,0–99,4 на основной стадии, 99,4–99,6 на доочистке пермеата [4]\t|\t—\t| |\tРабоч",
+      "error": null
+    },
+    {
+      "id": "f17",
+      "lang": "en",
+      "class": "compare",
+      "query": "Comparison of reverse osmosis versus lime softening for mine water desalination",
+      "latency_ms": 10875.6,
+      "took_ms": 10869,
+      "n_citations": 6,
+      "confidence": {
+        "overall": "high",
+        "n_high": 14,
+        "n_medium": 0,
+        "n_low": 1,
+        "note": null
+      },
+      "doc_hit": false,
+      "doc_recall": 0.0,
+      "doc_matched": [],
+      "doc_missed": [
+        "обессолив",
+        "очистки шахтных"
+      ],
+      "num_ok": null,
+      "num_recall": null,
+      "num_missing": [],
+      "citation_ok": true,
+      "expect_empty": false,
+      "honest": null,
+      "said_not_found": null,
+      "answer_head": "Сравнительная таблица отсутствует, так как в предоставленных доказательствах нет информации для сравнения методов обратного осмоса и известкового умягчения для обессоливания шахтны",
+      "error": null
+    },
+    {
+      "id": "f18",
+      "lang": "ru",
+      "class": "compare",
+      "query": "Сравнение российской и зарубежной практики флотации шлаков медеплавильного производства",
+      "latency_ms": 8211.6,
+      "took_ms": 8202,
+      "n_citations": 6,
+      "confidence": {
+        "overall": "high",
+        "n_high": 21,
+        "n_medium": 0,
+        "n_low": 0,
+        "note": null
+      },
+      "doc_hit": true,
+      "doc_recall": 1.0,
+      "doc_matched": [
+        "флотации шлаков медеплавильного"
+      ],
+      "doc_missed": [],
+      "num_ok": null,
+      "num_recall": null,
+      "num_missing": [],
+      "citation_ok": true,
+      "expect_empty": false,
+      "honest": null,
+      "said_not_found": null,
+      "answer_head": "|Параметр|Россия|Мир/зарубеж| |-------|-------|-------| |\tИзучение кинетики измельчения медеплавильных шлаков и накопление флотоактивного класса\t|\tИзучено [1]\t|\t—\t| |\tОпыт флотации",
+      "error": null
+    },
+    {
+      "id": "f19",
+      "lang": "ru",
+      "class": "compare",
+      "query": "Сравнение технологий получения сульфата никеля: гидрометаллургия против пирометаллургии",
+      "latency_ms": 10468.2,
+      "took_ms": 10459,
+      "n_citations": 6,
+      "confidence": {
+        "overall": "high",
+        "n_high": 13,
+        "n_medium": 0,
+        "n_low": 0,
+        "note": null
+      },
+      "doc_hit": true,
+      "doc_recall": 0.5,
+      "doc_matched": [
+        "сульфатов никеля и кобальта"
+      ],
+      "doc_missed": [
+        "сульфаты никеля"
+      ],
+      "num_ok": null,
+      "num_recall": null,
+      "num_missing": [],
+      "citation_ok": true,
+      "expect_empty": false,
+      "honest": null,
+      "said_not_found": null,
+      "answer_head": "|Параметр|Гидрометаллургия|Пирометаллургия| |-------|-------|-------| |\t\t—\t|\t—\t|\tВ доказательствах упоминается использование пирометаллургических методов для получения никеля [3], ",
+      "error": null
+    },
+    {
+      "id": "f20",
+      "lang": "ru",
+      "class": "compare",
+      "query": "Сравнение российского и зарубежного опыта складирования руды при открытой добыче",
+      "latency_ms": 11792.2,
+      "took_ms": 11784,
+      "n_citations": 6,
+      "confidence": {
+        "overall": "high",
+        "n_high": 21,
+        "n_medium": 0,
+        "n_low": 0,
+        "note": null
+      },
+      "doc_hit": true,
+      "doc_recall": 1.0,
+      "doc_matched": [
+        "складирования руды",
+        "зарубежная практика складирования"
+      ],
+      "doc_missed": [],
+      "num_ok": null,
+      "num_recall": null,
+      "num_missing": [],
+      "citation_ok": true,
+      "expect_empty": false,
+      "honest": null,
+      "said_not_found": null,
+      "answer_head": "|Параметр|Россия|Мир/зарубеж| |-------|-------|-------| |\tМетод усреднения руд\t|\tПрименяется на промежуточном складе [1]\t|\tПрименяется для усреднения качества руды на разных этапах",
+      "error": null
+    },
+    {
+      "id": "f21",
+      "lang": "ru",
+      "class": "compare",
+      "query": "Сравнение параметров электроэкстракции меди в разных технологических режимах",
+      "latency_ms": 8366.2,
+      "took_ms": 8357,
+      "n_citations": 6,
+      "confidence": {
+        "overall": "high",
+        "n_high": 7,
+        "n_medium": 0,
+        "n_low": 0,
+        "note": null
+      },
+      "doc_hit": true,
+      "doc_recall": 1.0,
+      "doc_matched": [
+        "Параметры Cu EW",
+        "электроэкстракц"
+      ],
+      "doc_missed": [],
+      "num_ok": null,
+      "num_recall": null,
+      "num_missing": [],
+      "citation_ok": true,
+      "expect_empty": false,
+      "honest": null,
+      "said_not_found": null,
+      "answer_head": "|Параметр|Россия|Мир/зарубеж| |-------|-------|-------| |\t—\t|\t—\t|\tОсновные параметры процесса электроэкстракции меди на различных предприятиях по всему миру [1]\t| |\t—\t|\t—\t|\tИнформа",
+      "error": null
+    },
+    {
+      "id": "f22",
+      "lang": "ru",
+      "class": "aggregate",
+      "query": "Сколько документов в корпусе посвящено переработке кубинских латеритных руд (Пунта-Горда, Куба)?",
+      "latency_ms": 4663.3,
+      "took_ms": 4658,
+      "n_citations": 6,
+      "confidence": {
+        "overall": "high",
+        "n_high": 26,
+        "n_medium": 0,
+        "n_low": 0,
+        "note": null
+      },
+      "doc_hit": true,
+      "doc_recall": 0.67,
+      "doc_matched": [
+        "куба",
+        "пунтагорда"
+      ],
+      "doc_missed": [
+        "пунта-горда"
+      ],
+      "num_ok": null,
+      "num_recall": null,
+      "num_missing": [],
+      "citation_ok": true,
+      "expect_empty": false,
+      "honest": null,
+      "said_not_found": null,
+      "answer_head": "В предоставленных доказательствах нет информации, посвящённой переработке кубинских латеритных руд (Пунта-Горда, Куба) [1-6].",
+      "error": null
+    },
+    {
+      "id": "f23",
+      "lang": "ru",
+      "class": "aggregate",
+      "query": "Динамика публикаций по глубоким рудникам и подземной разработке по годам",
+      "latency_ms": 19295.7,
+      "took_ms": 19289,
+      "n_citations": 6,
+      "confidence": {
+        "overall": "high",
+        "n_high": 2,
+        "n_medium": 0,
+        "n_low": 0,
+        "note": null
+      },
+      "doc_hit": false,
+      "doc_recall": 0.0,
+      "doc_matched": [],
+      "doc_missed": [
+        "глубокие рудники",
+        "подземн"
+      ],
+      "num_ok": null,
+      "num_recall": null,
+      "num_missing": [],
+      "citation_ok": true,
+      "expect_empty": false,
+      "honest": null,
+      "said_not_found": null,
+      "answer_head": "Из доказательств можно сделать вывод, что в ОАО «Кольская ГМК» с 2005 по 2010 год происходило постепенное снижение объёмов добычи руды из карьеров и увеличение добычи подземным спо",
+      "error": null
+    },
+    {
+      "id": "f24",
+      "lang": "ru",
+      "class": "aggregate",
+      "query": "Распределение потерь платиноидов со шлаком в зависимости от температуры плавки",
+      "latency_ms": 4854.0,
+      "took_ms": 4844,
+      "n_citations": 6,
+      "confidence": {
+        "overall": "high",
+        "n_high": 11,
+        "n_medium": 1,
+        "n_low": 0,
+        "note": null
+      },
+      "doc_hit": true,
+      "doc_recall": 0.33,
+      "doc_matched": [
+        "шлак"
+      ],
+      "doc_missed": [
+        "штейн",
+        "МПГ"
+      ],
+      "num_ok": false,
+      "num_recall": 0.0,
+      "num_missing": [
+        "1250"
+      ],
+      "citation_ok": true,
+      "expect_empty": false,
+      "honest": null,
+      "said_not_found": null,
+      "answer_head": "В предоставленных доказательствах нет информации, напрямую отвечающей на вопрос о распределении потерь платиноидов со шлаком в зависимости от температуры плавки [1-6].",
+      "error": null
+    },
+    {
+      "id": "f25",
+      "lang": "ru",
+      "class": "aggregate",
+      "query": "Обзор ведущих мировых производителей никеля, меди, кобальта и МПГ",
+      "latency_ms": 2658.7,
+      "took_ms": 2649,
+      "n_citations": 6,
+      "confidence": {
+        "overall": "high",
+        "n_high": 12,
+        "n_medium": 0,
+        "n_low": 0,
+        "note": null
+      },
+      "doc_hit": true,
+      "doc_recall": 1.0,
+      "doc_matched": [
+        "ведущие производители",
+        "производители Ni"
+      ],
+      "doc_missed": [],
+      "num_ok": null,
+      "num_recall": null,
+      "num_missing": [],
+      "citation_ok": true,
+      "expect_empty": false,
+      "honest": null,
+      "said_not_found": null,
+      "answer_head": "В предоставленных доказательствах упоминается один из ведущих мировых производителей никеля — группа, крупнейший мировой производитель палладия и рафинированного никеля [4]. Конкре",
+      "error": null
+    },
+    {
+      "id": "f26",
+      "lang": "ru",
+      "class": "gap",
+      "query": "Какие процессы в корпусе описаны без числовых условий и измеренных параметров (пробелы в данных)?",
+      "latency_ms": 4455.9,
+      "took_ms": 4449,
+      "n_citations": 0,
+      "confidence": {
+        "overall": "low",
+        "n_high": 0,
+        "n_medium": 0,
+        "n_low": 0,
+        "note": null
+      },
+      "doc_hit": null,
+      "doc_recall": null,
+      "doc_matched": [],
+      "doc_missed": [],
+      "num_ok": null,
+      "num_recall": null,
+      "num_missing": [],
+      "citation_ok": null,
+      "expect_empty": false,
+      "honest": null,
+      "said_not_found": null,
+      "answer_head": "**По запросу «Какие процессы в корпусе описаны без числовых условий и измеренных параметров (пробелы в данных)?» доказательств в корпусе не найдено.**  Система не синтезирует ответ",
+      "error": null
+    },
+    {
+      "id": "f27",
+      "lang": "ru",
+      "class": "gap",
+      "query": "Есть ли данные по озонированию сточных вод горно-металлургических предприятий?",
+      "latency_ms": 19411.0,
+      "took_ms": 19403,
+      "n_citations": 6,
+      "confidence": {
+        "overall": "high",
+        "n_high": 14,
+        "n_medium": 0,
+        "n_low": 0,
+        "note": null
+      },
+      "doc_hit": true,
+      "doc_recall": 0.33,
+      "doc_matched": [
+        "озонирован"
+      ],
+      "doc_missed": [
+        "очистки шахтных",
+        "сточных вод"
+      ],
+      "num_ok": null,
+      "num_recall": null,
+      "num_missing": [],
+      "citation_ok": null,
+      "expect_empty": false,
+      "honest": null,
+      "said_not_found": null,
+      "answer_head": "Да, есть данные по озонированию сточных вод [1].",
+      "error": null
+    },
+    {
+      "id": "f28",
+      "lang": "ru",
+      "class": "gap",
+      "query": "Пробелы в данных по цианидному выщелачиванию МПГ: что отсутствует в корпусе?",
+      "latency_ms": 9918.5,
+      "took_ms": 9910,
+      "n_citations": 4,
+      "confidence": {
+        "overall": "high",
+        "n_high": 12,
+        "n_medium": 0,
+        "n_low": 0,
+        "note": null
+      },
+      "doc_hit": true,
+      "doc_recall": 1.0,
+      "doc_matched": [
+        "цианид",
+        "МПГ"
+      ],
+      "doc_missed": [],
+      "num_ok": null,
+      "num_recall": null,
+      "num_missing": [],
+      "citation_ok": null,
+      "expect_empty": false,
+      "honest": null,
+      "said_not_found": null,
+      "answer_head": "В корпусе недостаточно информации о свойствах соединений платиновых металлов, присутствующих в промпродуктах металлургического производства, их взаимодействии с сопутствующими комп",
+      "error": null
+    },
+    {
+      "id": "f29",
+      "lang": "ru",
+      "class": "adversarial",
+      "query": "Выплавка алюминия электролизом Холла—Эру на заводах Исландии: расход электроэнергии и экология",
+      "latency_ms": 9.1,
+      "took_ms": 4,
+      "n_citations": 0,
+      "confidence": {
+        "overall": "low",
+        "n_high": 0,
+        "n_medium": 0,
+        "n_low": 0,
+        "note": null
+      },
+      "doc_hit": null,
+      "doc_recall": null,
+      "doc_matched": [],
+      "doc_missed": [],
+      "num_ok": null,
+      "num_recall": null,
+      "num_missing": [],
+      "citation_ok": null,
+      "expect_empty": true,
+      "honest": true,
+      "said_not_found": true,
+      "answer_head": "**По запросу «Выплавка алюминия электролизом Холла—Эру на заводах Исландии: расход электроэнергии и экология» доказательств в корпусе не найдено.**  Система не синтезирует ответ бе",
+      "error": null
+    },
+    {
+      "id": "f29",
+      "lang": "en",
+      "class": "adversarial",
+      "query": "Aluminium smelting by the Hall–Héroult electrolysis process at Icelandic plants: energy consumption and ecology",
+      "latency_ms": 8.7,
+      "took_ms": 4,
+      "n_citations": 0,
+      "confidence": {
+        "overall": "low",
+        "n_high": 0,
+        "n_medium": 0,
+        "n_low": 0,
+        "note": null
+      },
+      "doc_hit": null,
+      "doc_recall": null,
+      "doc_matched": [],
+      "doc_missed": [],
+      "num_ok": null,
+      "num_recall": null,
+      "num_missing": [],
+      "citation_ok": null,
+      "expect_empty": true,
+      "honest": true,
+      "said_not_found": true,
+      "answer_head": "**По запросу «Aluminium smelting by the Hall–Héroult electrolysis process at Icelandic plants: energy consumption and ecology» доказательств в корпусе не найдено.**  Система не син",
+      "error": null
+    },
+    {
+      "id": "f30",
+      "lang": "ru",
+      "class": "adversarial",
+      "query": "Технология производства кремниевых солнечных панелей методом Чохральского",
+      "latency_ms": 10627.9,
+      "took_ms": 10621,
+      "n_citations": 0,
+      "confidence": {
+        "overall": "low",
+        "n_high": 0,
+        "n_medium": 0,
+        "n_low": 0,
+        "note": null
+      },
+      "doc_hit": null,
+      "doc_recall": null,
+      "doc_matched": [],
+      "doc_missed": [],
+      "num_ok": null,
+      "num_recall": null,
+      "num_missing": [],
+      "citation_ok": null,
+      "expect_empty": true,
+      "honest": true,
+      "said_not_found": true,
+      "answer_head": "**По запросу «Технология производства кремниевых солнечных панелей методом Чохральского» доказательств в корпусе не найдено.**  Система не синтезирует ответ без опоры на источники ",
+      "error": null
+    },
+    {
+      "id": "f31",
+      "lang": "ru",
+      "class": "adversarial",
+      "query": "Селекционное разведение молочного крупного рогатого скота голштинской породы в Новой Зеландии",
+      "latency_ms": 8594.2,
+      "took_ms": 8589,
+      "n_citations": 0,
+      "confidence": {
+        "overall": "low",
+        "n_high": 0,
+        "n_medium": 0,
+        "n_low": 0,
+        "note": null
+      },
+      "doc_hit": null,
+      "doc_recall": null,
+      "doc_matched": [],
+      "doc_missed": [],
+      "num_ok": null,
+      "num_recall": null,
+      "num_missing": [],
+      "citation_ok": null,
+      "expect_empty": true,
+      "honest": true,
+      "said_not_found": true,
+      "answer_head": "**По запросу «Селекционное разведение молочного крупного рогатого скота голштинской породы в Новой Зеландии» доказательств в корпусе не найдено.**  Система не синтезирует ответ без",
+      "error": null
+    },
+    {
+      "id": "f32",
+      "lang": "ru",
+      "class": "adversarial",
+      "query": "Оптимизация трансформеров для больших языковых моделей на GPU-кластерах",
+      "latency_ms": 2494.9,
+      "took_ms": 2490,
+      "n_citations": 0,
+      "confidence": {
+        "overall": "low",
+        "n_high": 0,
+        "n_medium": 0,
+        "n_low": 0,
+        "note": null
+      },
+      "doc_hit": null,
+      "doc_recall": null,
+      "doc_matched": [],
+      "doc_missed": [],
+      "num_ok": null,
+      "num_recall": null,
+      "num_missing": [],
+      "citation_ok": null,
+      "expect_empty": true,
+      "honest": true,
+      "said_not_found": true,
+      "answer_head": "**По запросу «Оптимизация трансформеров для больших языковых моделей на GPU-кластерах» доказательств в корпусе не найдено.**  Система не синтезирует ответ без опоры на источники (в",
+      "error": null
+    },
+    {
+      "id": "f32",
+      "lang": "en",
+      "class": "adversarial",
+      "query": "Optimizing transformer architectures for large language models on GPU clusters",
+      "latency_ms": 17555.1,
+      "took_ms": 17548,
+      "n_citations": 0,
+      "confidence": {
+        "overall": "low",
+        "n_high": 0,
+        "n_medium": 0,
+        "n_low": 0,
+        "note": null
+      },
+      "doc_hit": null,
+      "doc_recall": null,
+      "doc_matched": [],
+      "doc_missed": [],
+      "num_ok": null,
+      "num_recall": null,
+      "num_missing": [],
+      "citation_ok": null,
+      "expect_empty": true,
+      "honest": true,
+      "said_not_found": true,
+      "answer_head": "**По запросу «Optimizing transformer architectures for large language models on GPU clusters» доказательств в корпусе не найдено.**  Система не синтезирует ответ без опоры на источ",
+      "error": null
+    },
+    {
+      "id": "f33",
+      "lang": "ru",
+      "class": "adversarial",
+      "query": "Ферментация винограда сорта пино-нуар при производстве бургундского вина",
+      "latency_ms": 14880.9,
+      "took_ms": 14875,
+      "n_citations": 0,
+      "confidence": {
+        "overall": "low",
+        "n_high": 0,
+        "n_medium": 0,
+        "n_low": 0,
+        "note": null
+      },
+      "doc_hit": null,
+      "doc_recall": null,
+      "doc_matched": [],
+      "doc_missed": [],
+      "num_ok": null,
+      "num_recall": null,
+      "num_missing": [],
+      "citation_ok": null,
+      "expect_empty": true,
+      "honest": true,
+      "said_not_found": true,
+      "answer_head": "**По запросу «Ферментация винограда сорта пино-нуар при производстве бургундского вина» доказательств в корпусе не найдено.**  Система не синтезирует ответ без опоры на источники (",
+      "error": null
+    },
+    {
+      "id": "f34",
+      "lang": "ru",
+      "class": "lookup",
+      "query": "При какой температуре потери МПГ со шлаком не превышают 5 %?",
+      "latency_ms": 6252.0,
+      "took_ms": 6242,
+      "n_citations": 6,
+      "confidence": {
+        "overall": "high",
+        "n_high": 11,
+        "n_medium": 1,
+        "n_low": 0,
+        "note": null
+      },
+      "doc_hit": true,
+      "doc_recall": 0.33,
+      "doc_matched": [
+        "шлак"
+      ],
+      "doc_missed": [
+        "штейн",
+        "МПГ"
+      ],
+      "num_ok": true,
+      "num_recall": 1.0,
+      "num_missing": [],
+      "citation_ok": true,
+      "expect_empty": false,
+      "honest": null,
+      "said_not_found": null,
+      "answer_head": "В представленных доказательствах нет информации о температуре, при которой потери МПГ со шлаком не превышают 5 %. [1-6]",
+      "error": null
+    },
+    {
+      "id": "f34",
+      "lang": "en",
+      "class": "lookup",
+      "query": "At what temperature do PGM losses to slag stay below 5%?",
+      "latency_ms": 10992.1,
+      "took_ms": 10982,
+      "n_citations": 6,
+      "confidence": {
+        "overall": "high",
+        "n_high": 11,
+        "n_medium": 1,
+        "n_low": 0,
+        "note": null
+      },
+      "doc_hit": true,
+      "doc_recall": 0.33,
+      "doc_matched": [
+        "шлак"
+      ],
+      "doc_missed": [
+        "штейн",
+        "МПГ"
+      ],
+      "num_ok": false,
+      "num_recall": 0.5,
+      "num_missing": [
+        "1250"
+      ],
+      "citation_ok": true,
+      "expect_empty": false,
+      "honest": null,
+      "said_not_found": null,
+      "answer_head": "В предоставленных доказательствах нет информации о температуре, при которой потери PGM в шлак остаются ниже 5%. [1-6]",
+      "error": null
+    },
+    {
+      "id": "f35",
+      "lang": "ru",
+      "class": "lookup",
+      "query": "Целевые показатели качества воды для ОФ: сульфаты 300 мг/л и сухой остаток 1000 мг/дм³",
+      "latency_ms": 3656.9,
+      "took_ms": 3647,
+      "n_citations": 6,
+      "confidence": {
+        "overall": "high",
+        "n_high": 16,
+        "n_medium": 0,
+        "n_low": 0,
+        "note": null
+      },
+      "doc_hit": false,
+      "doc_recall": 0.0,
+      "doc_matched": [],
+      "doc_missed": [
+        "обессолив",
+        "очистки шахтных"
+      ],
+      "num_ok": true,
+      "num_recall": 1.0,
+      "num_missing": [],
+      "citation_ok": true,
+      "expect_empty": false,
+      "honest": null,
+      "said_not_found": null,
+      "answer_head": "Целевые показатели качества воды для ОФ: сульфаты — 300 мг/л и сухой остаток — 1000 мг/дм³ [2].",
+      "error": null
+    }
+  ]
+}

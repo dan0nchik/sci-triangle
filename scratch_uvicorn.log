@@ -1,0 +1,10 @@
+INFO:     Started server process [2381]
+INFO:     Waiting for application startup.
+INFO:     Application startup complete.
+INFO:     Uvicorn running on http://0.0.0.0:8000 (Press CTRL+C to quit)
+{"method": "GET", "path": "/api/health", "status": 200, "took_ms": 553, "event": "request", "request_id": "178238f4cf02", "level": "info", "timestamp": "2026-07-04T10:29:58.669332Z"}
+INFO:     127.0.0.1:49604 - "GET /api/health HTTP/1.1" 200 OK
+{"method": "GET", "path": "/api/health", "status": 200, "took_ms": 6, "event": "request", "request_id": "03fd44486d2f", "level": "info", "timestamp": "2026-07-04T10:29:58.684082Z"}
+INFO:     127.0.0.1:49610 - "GET /api/health HTTP/1.1" 200 OK
+{"method": "POST", "path": "/api/search", "status": 200, "took_ms": 5340, "event": "request", "request_id": "f4a5d69f07b5", "level": "info", "timestamp": "2026-07-04T10:31:03.853692Z"}
+INFO:     127.0.0.1:49665 - "POST /api/search HTTP/1.1" 200 OK

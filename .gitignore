@@ -1,0 +1,15 @@
+data/
+corpus/
+graph/
+.env
+__pycache__/
+node_modules/
+*.pyc
+.venv/
+.venv*/
+dist/
+volumes/
+.venv-c/
+*.sqlite
+*.sqlite3
+backups/

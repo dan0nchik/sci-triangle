@@ -1,0 +1,36 @@
+[extract] всего чанков: 41263 | уже готово: 41263 | к обработке: 0
+[build] строю граф из накопленных экстракций...
+[build] батч-эмбеддинг 17319 уникальных имён сущностей...
+Traceback (most recent call last):
+  File "/Users/danonchik/dev/nornikel-hack-26/pipeline/extract/runner.py", line 573, in <module>
+    main()
+  File "/Users/danonchik/dev/nornikel-hack-26/pipeline/extract/runner.py", line 562, in main
+    gb = build_graph(use_embedding=not args.no_embed_match)
+         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/danonchik/dev/nornikel-hack-26/pipeline/extract/runner.py", line 530, in build_graph
+    gb.prepare_embeddings(rows)
+  File "/Users/danonchik/dev/nornikel-hack-26/pipeline/extract/runner.py", line 228, in prepare_embeddings
+    vecs = embed(names_l, kind="doc")
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/danonchik/dev/nornikel-hack-26/shared/yandex_client.py", line 449, in embed
+    list(ex.map(_run, to_fetch))
+  File "/opt/homebrew/Cellar/python@3.11/3.11.15_3/Frameworks/Python.framework/Versions/3.11/lib/python3.11/concurrent/futures/_base.py", line 619, in result_iterator
+    yield _result_or_cancel(fs.pop())
+          ^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/opt/homebrew/Cellar/python@3.11/3.11.15_3/Frameworks/Python.framework/Versions/3.11/lib/python3.11/concurrent/futures/_base.py", line 317, in _result_or_cancel
+    return fut.result(timeout)
+           ^^^^^^^^^^^^^^^^^^^
+  File "/opt/homebrew/Cellar/python@3.11/3.11.15_3/Frameworks/Python.framework/Versions/3.11/lib/python3.11/concurrent/futures/_base.py", line 456, in result
+    return self.__get_result()
+           ^^^^^^^^^^^^^^^^^^^
+  File "/opt/homebrew/Cellar/python@3.11/3.11.15_3/Frameworks/Python.framework/Versions/3.11/lib/python3.11/concurrent/futures/_base.py", line 401, in __get_result
+    raise self._exception
+  File "/opt/homebrew/Cellar/python@3.11/3.11.15_3/Frameworks/Python.framework/Versions/3.11/lib/python3.11/concurrent/futures/thread.py", line 58, in run
+    result = self.fn(*self.args, **self.kwargs)
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/danonchik/dev/nornikel-hack-26/shared/yandex_client.py", line 444, in _run
+    results[i] = _embed_one(texts[i], kind, folder)
+                 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/danonchik/dev/nornikel-hack-26/shared/yandex_client.py", line 410, in _embed_one
+    raise YandexAPIError(f"embedding HTTP {resp.status_code}: {resp.text[:300]}")
+shared.yandex_client.YandexAPIError: embedding HTTP 403: {"error":"Permission denied","code":7,"message":"Permission denied","details":[]}

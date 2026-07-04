@@ -1,0 +1,223 @@
+# Реестр концептов домена R&D горно-металлургической отрасли (sci-tangle).
+# Стабильные concept_id -> preferred label RU/EN + алиасы/аббревиатуры.
+# Используется нормализацией (pipeline/extract/normalize.py): точное совпадение
+# по label/alias -> concept_id; иначе эмбеддинг-матчинг; иначе auto-концепт.
+#
+# Поля концепта:
+#   concept_id : стабильный c_* идентификатор (не менять!)
+#   type       : Material | Process | Equipment | Parameter | Facility
+#   label_ru   : предпочтительная метка (рус)
+#   label_en   : предпочтительная метка (англ)
+#   aliases    : синонимы/аббревиатуры/формы (RU и EN, регистр не важен)
+#   class      : для Material — metal|ore|intermediate|reagent|waste|solution|product
+#   domain     : для Process — hydro|pyro|обогащение|экология|горное дело|водоочистка
+#   unit       : для Parameter — каноническая единица
+version: 1
+concepts:
+
+# ============================== МЕТАЛЛЫ (Material/metal) ======================
+- {concept_id: c_nickel, type: Material, class: metal, label_ru: никель, label_en: nickel, aliases: [Ni, никель электролитный, катодный никель, Ni2+]}
+- {concept_id: c_copper, type: Material, class: metal, label_ru: медь, label_en: copper, aliases: [Cu, катодная медь, черновая медь, анодная медь, Cu2+]}
+- {concept_id: c_cobalt, type: Material, class: metal, label_ru: кобальт, label_en: cobalt, aliases: [Co, Co2+]}
+- {concept_id: c_platinum, type: Material, class: metal, label_ru: платина, label_en: platinum, aliases: [Pt]}
+- {concept_id: c_palladium, type: Material, class: metal, label_ru: палладий, label_en: palladium, aliases: [Pd]}
+- {concept_id: c_gold, type: Material, class: metal, label_ru: золото, label_en: gold, aliases: [Au]}
+- {concept_id: c_silver, type: Material, class: metal, label_ru: серебро, label_en: silver, aliases: [Ag]}
+- {concept_id: c_rhodium, type: Material, class: metal, label_ru: родий, label_en: rhodium, aliases: [Rh]}
+- {concept_id: c_iridium, type: Material, class: metal, label_ru: иридий, label_en: iridium, aliases: [Ir]}
+- {concept_id: c_ruthenium, type: Material, class: metal, label_ru: рутений, label_en: ruthenium, aliases: [Ru]}
+- {concept_id: c_osmium, type: Material, class: metal, label_ru: осмий, label_en: osmium, aliases: [Os]}
+- {concept_id: c_pgm, type: Material, class: metal, label_ru: металлы платиновой группы, label_en: platinum group metals, aliases: [МПГ, ЭПГ, PGM, PGE, платиноиды, платиновые металлы]}
+- {concept_id: c_lead, type: Material, class: metal, label_ru: свинец, label_en: lead, aliases: [Pb]}
+- {concept_id: c_zinc, type: Material, class: metal, label_ru: цинк, label_en: zinc, aliases: [Zn]}
+- {concept_id: c_iron, type: Material, class: metal, label_ru: железо, label_en: iron, aliases: [Fe, Fe3+, Fe2+]}
+- {concept_id: c_lithium, type: Material, class: metal, label_ru: литий, label_en: lithium, aliases: [Li]}
+- {concept_id: c_chromium, type: Material, class: metal, label_ru: хром, label_en: chromium, aliases: [Cr]}
+- {concept_id: c_manganese, type: Material, class: metal, label_ru: марганец, label_en: manganese, aliases: [Mn]}
+- {concept_id: c_aluminium, type: Material, class: metal, label_ru: алюминий, label_en: aluminium, aliases: [Al, алюминий]}
+- {concept_id: c_arsenic, type: Material, class: metal, label_ru: мышьяк, label_en: arsenic, aliases: [As]}
+- {concept_id: c_selenium, type: Material, class: metal, label_ru: селен, label_en: selenium, aliases: [Se]}
+- {concept_id: c_tellurium, type: Material, class: metal, label_ru: теллур, label_en: tellurium, aliases: [Te]}
+- {concept_id: c_sulfur, type: Material, class: metal, label_ru: сера, label_en: sulfur, aliases: [S, элементная сера, элементарная сера, сульфидная сера]}
+- {concept_id: c_antimony, type: Material, class: metal, label_ru: сурьма, label_en: antimony, aliases: [Sb]}
+- {concept_id: c_bismuth, type: Material, class: metal, label_ru: висмут, label_en: bismuth, aliases: [Bi]}
+- {concept_id: c_cadmium, type: Material, class: metal, label_ru: кадмий, label_en: cadmium, aliases: [Cd]}
+- {concept_id: c_tin, type: Material, class: metal, label_ru: олово, label_en: tin, aliases: [Sn]}
+- {concept_id: c_rem, type: Material, class: metal, label_ru: редкоземельные металлы, label_en: rare earth elements, aliases: [РЗМ, REE, РЗЭ]}
+
+# ============================== РУДЫ / ПРОМПРОДУКТЫ (intermediate/ore) =========
+- {concept_id: c_sulfide_ore, type: Material, class: ore, label_ru: сульфидная руда, label_en: sulfide ore, aliases: [сульфидная медно-никелевая руда, Cu-Ni руда, вкрапленная руда]}
+- {concept_id: c_laterite_ore, type: Material, class: ore, label_ru: латеритная руда, label_en: laterite ore, aliases: [латерит, окисленная никелевая руда, латеритная никелевая руда]}
+- {concept_id: c_matte, type: Material, class: intermediate, label_ru: штейн, label_en: matte, aliases: [медно-никелевый штейн, Cu-Ni штейн, никелевый штейн]}
+- {concept_id: c_converter_matte, type: Material, class: intermediate, label_ru: файнштейн, label_en: converter matte, aliases: [белый штейн, конвертерный штейн]}
+- {concept_id: c_slag, type: Material, class: waste, label_ru: шлак, label_en: slag, aliases: [конвертерный шлак, отвальный шлак, медеплавильный шлак, обедненный шлак]}
+- {concept_id: c_concentrate, type: Material, class: intermediate, label_ru: концентрат, label_en: concentrate, aliases: [флотоконцентрат, рудный концентрат]}
+- {concept_id: c_ni_concentrate, type: Material, class: intermediate, label_ru: никелевый концентрат, label_en: nickel concentrate, aliases: [Ni концентрат, никельсодержащий концентрат]}
+- {concept_id: c_cu_concentrate, type: Material, class: intermediate, label_ru: медный концентрат, label_en: copper concentrate, aliases: [Cu концентрат]}
+- {concept_id: c_pgm_concentrate, type: Material, class: intermediate, label_ru: концентрат МПГ, label_en: PGM concentrate, aliases: [концентрат платиновых металлов, платиновый концентрат]}
+- {concept_id: c_cathode_copper, type: Material, class: product, label_ru: катодная медь, label_en: cathode copper, aliases: [медные катоды]}
+- {concept_id: c_cathode_nickel, type: Material, class: product, label_ru: катодный никель, label_en: cathode nickel, aliases: [никелевые катоды]}
+- {concept_id: c_anode_copper, type: Material, class: intermediate, label_ru: анодная медь, label_en: anode copper, aliases: [медные аноды, черновые медные аноды, черновая медь, blister copper]}
+- {concept_id: c_pig_iron, type: Material, class: product, label_ru: чугун, label_en: pig iron, aliases: [мини-домна]}
+- {concept_id: c_npi, type: Material, class: product, label_ru: ферроникель, label_en: nickel pig iron, aliases: [NPI, ЧФН, никелевый чугун]}
+- {concept_id: c_nickel_sulfate, type: Material, class: product, label_ru: сульфат никеля, label_en: nickel sulfate, aliases: [NiSO4, сернокислый никель]}
+- {concept_id: c_cobalt_sulfate, type: Material, class: product, label_ru: сульфат кобальта, label_en: cobalt sulfate, aliases: [CoSO4]}
+- {concept_id: c_copper_sulfate, type: Material, class: product, label_ru: медный купорос, label_en: copper sulfate, aliases: [сульфат меди, CuSO4]}
+- {concept_id: c_nickel_powder, type: Material, class: product, label_ru: никелевый порошок, label_en: nickel powder, aliases: []}
+- {concept_id: c_copper_powder, type: Material, class: product, label_ru: медный порошок, label_en: copper powder, aliases: [медные порошки]}
+- {concept_id: c_cake, type: Material, class: intermediate, label_ru: кек, label_en: cake, aliases: [медный кек, никелевый кек, кек медеочистки]}
+- {concept_id: c_cam, type: Material, class: product, label_ru: катодный активный материал, label_en: cathode active material, aliases: [САМ, CAM, катодные материалы]}
+- {concept_id: c_ncm, type: Material, class: product, label_ru: NCM катодный материал, label_en: NCM cathode material, aliases: [NMC, NCM, никель-кобальт-марганец, pCAM, прекурсор катодного материала]}
+- {concept_id: c_spent_lib, type: Material, class: waste, label_ru: отработанные литий-ионные аккумуляторы, label_en: spent lithium-ion batteries, aliases: [ЛИБ, отработанные ЛИБ, spent LIB, аккумуляторный лом]}
+- {concept_id: c_gypsum, type: Material, class: waste, label_ru: техногенный гипс, label_en: technogenic gypsum, aliases: [гипс техногенного происхождения, фосфогипс]}
+- {concept_id: c_anhydrite, type: Material, class: product, label_ru: синтетический ангидрит, label_en: synthetic anhydrite, aliases: [ангидрит, безводный сульфат кальция]}
+- {concept_id: c_tailings, type: Material, class: waste, label_ru: хвосты обогащения, label_en: flotation tailings, aliases: [хвосты, отвальные хвосты]}
+- {concept_id: c_dust, type: Material, class: waste, label_ru: пыль, label_en: dust, aliases: [сульфидная пыль, металлургическая пыль, возгоны]}
+- {concept_id: c_sludge, type: Material, class: intermediate, label_ru: шлам, label_en: sludge, aliases: [анодный шлам, металлургический шлам, шламы]}
+
+# ============================== РАСТВОРЫ (solution) ===========================
+- {concept_id: c_electrolyte, type: Material, class: solution, label_ru: электролит, label_en: electrolyte, aliases: [сульфатный электролит, хлоридный электролит, никелевый электролит]}
+- {concept_id: c_catholyte, type: Material, class: solution, label_ru: католит, label_en: catholyte, aliases: [католитный раствор]}
+- {concept_id: c_anolyte, type: Material, class: solution, label_ru: анолит, label_en: anolyte, aliases: []}
+- {concept_id: c_mine_water, type: Material, class: solution, label_ru: шахтная вода, label_en: mine water, aliases: [шахтные воды, рудничные воды, карьерные воды]}
+- {concept_id: c_process_water, type: Material, class: solution, label_ru: оборотная вода, label_en: process water, aliases: [технологическая вода, промышленные стоки, сточные воды]}
+- {concept_id: c_pregnant_solution, type: Material, class: solution, label_ru: продуктивный раствор, label_en: pregnant leach solution, aliases: [PLS, растворы выщелачивания]}
+
+# ============================== РЕАГЕНТЫ (reagent) ============================
+- {concept_id: c_sulfuric_acid, type: Material, class: reagent, label_ru: серная кислота, label_en: sulfuric acid, aliases: [H2SO4]}
+- {concept_id: c_hydrochloric_acid, type: Material, class: reagent, label_ru: соляная кислота, label_en: hydrochloric acid, aliases: [HCl]}
+- {concept_id: c_boric_acid, type: Material, class: reagent, label_ru: борная кислота, label_en: boric acid, aliases: [БК, H3BO3]}
+- {concept_id: c_sodium_sulfite, type: Material, class: reagent, label_ru: сульфит натрия, label_en: sodium sulfite, aliases: [Na2SO3]}
+- {concept_id: c_cyanide, type: Material, class: reagent, label_ru: цианид, label_en: cyanide, aliases: [цианид натрия, NaCN, цианистый натрий]}
+- {concept_id: c_lime, type: Material, class: reagent, label_ru: известь, label_en: lime, aliases: [известковое молоко, CaO, гидроксид кальция]}
+- {concept_id: c_sodium_hydroxide, type: Material, class: reagent, label_ru: гидроксид натрия, label_en: sodium hydroxide, aliases: [NaOH, едкий натр, каустик]}
+- {concept_id: c_chlorine, type: Material, class: reagent, label_ru: хлор, label_en: chlorine, aliases: [Cl2, газообразный хлор]}
+- {concept_id: c_ozone, type: Material, class: reagent, label_ru: озон, label_en: ozone, aliases: [O3]}
+- {concept_id: c_hydrogen_peroxide, type: Material, class: reagent, label_ru: пероксид водорода, label_en: hydrogen peroxide, aliases: [H2O2, перекись водорода]}
+- {concept_id: c_collector, type: Material, class: reagent, label_ru: коллектор, label_en: collector, aliases: [ксантогенат, собиратель, флотореагент]}
+- {concept_id: c_frother, type: Material, class: reagent, label_ru: пенообразователь, label_en: frother, aliases: [вспениватель]}
+- {concept_id: c_surfactant, type: Material, class: reagent, label_ru: поверхностно-активное вещество, label_en: surfactant, aliases: [ПАВ, ДСН, додецилсульфат натрия, SDS]}
+
+# ============================== ПРОЦЕССЫ: ГИДРО (hydro) =======================
+- {concept_id: c_electrowinning, type: Process, domain: hydro, label_ru: электроэкстракция, label_en: electrowinning, aliases: [электроэкстракция никеля, электроэкстракция меди, EW, electrowinning of nickel, electrowinning of copper, электроосаждение]}
+- {concept_id: c_electrorefining, type: Process, domain: hydro, label_ru: электролитическое рафинирование, label_en: electrorefining, aliases: [электрорафинирование, электролиз, electrorefining, рафинирование меди электролизом]}
+- {concept_id: c_leaching, type: Process, domain: hydro, label_ru: выщелачивание, label_en: leaching, aliases: [выщелачивание руды]}
+- {concept_id: c_heap_leaching, type: Process, domain: hydro, label_ru: кучное выщелачивание, label_en: heap leaching, aliases: [heap leach, кучное выщелачивание в условиях холодного климата]}
+- {concept_id: c_chloride_leaching, type: Process, domain: hydro, label_ru: хлорное выщелачивание, label_en: chloride leaching, aliases: [хлоридное выщелачивание, хлорирование]}
+- {concept_id: c_cyanide_leaching, type: Process, domain: hydro, label_ru: цианидное выщелачивание, label_en: cyanide leaching, aliases: [цианирование]}
+- {concept_id: c_pressure_leaching, type: Process, domain: hydro, label_ru: автоклавное выщелачивание, label_en: pressure leaching, aliases: [автоклавное окислительное выщелачивание, HPAL, POX]}
+- {concept_id: c_solvent_extraction, type: Process, domain: hydro, label_ru: жидкостная экстракция, label_en: solvent extraction, aliases: [экстракция, SX, растворитель­ная экстракция, solvent extraction]}
+- {concept_id: c_precipitation, type: Process, domain: hydro, label_ru: осаждение, label_en: precipitation, aliases: [химическое осаждение, гидролитическое осаждение, осаждение гидроксидов]}
+- {concept_id: c_cementation, type: Process, domain: hydro, label_ru: цементация, label_en: cementation, aliases: [цементационная очистка]}
+- {concept_id: c_ion_exchange, type: Process, domain: hydro, label_ru: ионный обмен, label_en: ion exchange, aliases: [сорбция, ионообменная очистка]}
+- {concept_id: c_iron_removal, type: Process, domain: hydro, label_ru: очистка от железа, label_en: iron removal, aliases: [обезжелезивание, удаление железа, гетит-процесс, ярозит-процесс]}
+- {concept_id: c_affinage, type: Process, domain: hydro, label_ru: аффинаж, label_en: refining of precious metals, aliases: [аффинаж драгоценных металлов, affinage]}
+- {concept_id: c_desalination, type: Process, domain: водоочистка, label_ru: обессоливание, label_en: desalination, aliases: [деминерализация, опреснение, обессоливание воды]}
+
+# ============================== ПРОЦЕССЫ: ПИРО (pyro) =========================
+- {concept_id: c_smelting, type: Process, domain: pyro, label_ru: плавка, label_en: smelting, aliases: [плавка на штейн, автогенная плавка, smelting]}
+- {concept_id: c_flash_smelting, type: Process, domain: pyro, label_ru: взвешенная плавка, label_en: flash smelting, aliases: [ПВП, печь взвешенной плавки, флэш-плавка, автогенная взвешенная плавка]}
+- {concept_id: c_vanyukov, type: Process, domain: pyro, label_ru: плавка Ванюкова, label_en: Vanyukov process, aliases: [процесс Ванюкова, ПВ]}
+- {concept_id: c_converting, type: Process, domain: pyro, label_ru: конвертирование, label_en: converting, aliases: [конвертирование штейна, продувка]}
+- {concept_id: c_roasting, type: Process, domain: pyro, label_ru: обжиг, label_en: roasting, aliases: [окислительный обжиг, обжиг в кипящем слое, сульфатизирующий обжиг]}
+- {concept_id: c_slag_cleaning, type: Process, domain: pyro, label_ru: обеднение шлака, label_en: slag cleaning, aliases: [обеднение шлаков, slag depletion, обеднение конвертерных шлаков]}
+- {concept_id: c_granulation, type: Process, domain: pyro, label_ru: грануляция, label_en: granulation, aliases: [грануляция штейна, водная грануляция]}
+- {concept_id: c_drying, type: Process, domain: pyro, label_ru: сушка, label_en: drying, aliases: [сушка концентрата, термическая сушка]}
+- {concept_id: c_tsl, type: Process, domain: pyro, label_ru: погружная фурменная плавка, label_en: top submerged lance smelting, aliases: [TSL, Ausmelt, Isasmelt]}
+- {concept_id: c_calcination, type: Process, domain: pyro, label_ru: кальцинация, label_en: calcination, aliases: [прокаливание, обжиг-восстановление]}
+- {concept_id: c_briquetting, type: Process, domain: pyro, label_ru: брикетирование, label_en: briquetting, aliases: [окомкование, брикеты]}
+- {concept_id: c_pelletizing, type: Process, domain: обогащение, label_ru: окатывание, label_en: pelletizing, aliases: [производство окатышей, окатыши]}
+
+# ============================== ПРОЦЕССЫ: ОБОГАЩЕНИЕ ==========================
+- {concept_id: c_flotation, type: Process, domain: обогащение, label_ru: флотация, label_en: flotation, aliases: [пенная флотация, флотационное обогащение, флотация шлаков]}
+- {concept_id: c_magnetic_separation, type: Process, domain: обогащение, label_ru: магнитная сепарация, label_en: magnetic separation, aliases: [магнитное обогащение, магнитная сепарация шлаков]}
+- {concept_id: c_grinding, type: Process, domain: обогащение, label_ru: измельчение, label_en: grinding, aliases: [тонкое измельчение, сверхтонкое измельчение, помол]}
+- {concept_id: c_crushing, type: Process, domain: обогащение, label_ru: дробление, label_en: crushing, aliases: [дробление руды]}
+- {concept_id: c_ore_preparation, type: Process, domain: обогащение, label_ru: рудоподготовка, label_en: ore preparation, aliases: [подготовка руды, дробление-измельчение]}
+- {concept_id: c_gravity_concentration, type: Process, domain: обогащение, label_ru: гравитационное обогащение, label_en: gravity concentration, aliases: [гравитация, отсадка, концентрация на столах]}
+- {concept_id: c_classification, type: Process, domain: обогащение, label_ru: классификация, label_en: classification, aliases: [гидроклассификация, грохочение]}
+- {concept_id: c_thickening, type: Process, domain: обогащение, label_ru: сгущение, label_en: thickening, aliases: [сгущение пульпы]}
+- {concept_id: c_filtration, type: Process, domain: обогащение, label_ru: фильтрация, label_en: filtration, aliases: [фильтрование, обезвоживание]}
+- {concept_id: c_dispersion, type: Process, domain: обогащение, label_ru: диспергирование, label_en: dispersion, aliases: [вдувание дисперсного сырья]}
+
+# ============================== ПРОЦЕССЫ: ЭКОЛОГИЯ/ВОДА =======================
+- {concept_id: c_water_treatment, type: Process, domain: водоочистка, label_ru: очистка воды, label_en: water treatment, aliases: [очистка шахтных вод, водоочистка, очистка сточных вод]}
+- {concept_id: c_ozonation, type: Process, domain: водоочистка, label_ru: озонирование, label_en: ozonation, aliases: [озонирование стоков, озоновая очистка]}
+- {concept_id: c_so2_removal, type: Process, domain: экология, label_ru: улавливание SO2, label_en: SO2 removal, aliases: [удаление SO2, десульфуризация, концентрирование SO2, сероочистка]}
+- {concept_id: c_sulfur_extraction, type: Process, domain: экология, label_ru: извлечение элементной серы, label_en: elemental sulfur extraction, aliases: [выделение элементарной серы, экстракция серы растворителями]}
+- {concept_id: c_water_injection, type: Process, domain: экология, label_ru: закачка вод в глубокие горизонты, label_en: deep well injection, aliases: [закачка шахтных вод, подземное захоронение стоков]}
+- {concept_id: c_waste_processing, type: Process, domain: экология, label_ru: переработка отходов, label_en: waste processing, aliases: [термическая переработка отходов, утилизация отходов, переработка твердых отходов]}
+- {concept_id: c_neutralization, type: Process, domain: водоочистка, label_ru: нейтрализация, label_en: neutralization, aliases: [известковая нейтрализация, реагентная очистка]}
+
+# ============================== ПРОЦЕССЫ: ГОРНОЕ ДЕЛО =========================
+- {concept_id: c_underground_mining, type: Process, domain: горное дело, label_ru: подземная добыча, label_en: underground mining, aliases: [подземная разработка, подземный комплекс]}
+- {concept_id: c_open_pit_mining, type: Process, domain: горное дело, label_ru: открытая добыча, label_en: open pit mining, aliases: [открытая разработка, карьерная добыча]}
+- {concept_id: c_backfill, type: Process, domain: горное дело, label_ru: закладка выработанного пространства, label_en: backfilling, aliases: [закладка, закладочные смеси, твердеющая закладка]}
+- {concept_id: c_ore_blending, type: Process, domain: горное дело, label_ru: усреднение руды, label_en: ore blending, aliases: [усреднение, складирование руды, шихтовка]}
+- {concept_id: c_geomechanics, type: Process, domain: горное дело, label_ru: геомеханика, label_en: geomechanics, aliases: [геомеханическое моделирование, НДС массива, напряженно-деформированное состояние]}
+- {concept_id: c_rockburst, type: Process, domain: горное дело, label_ru: удароопасность, label_en: rockburst hazard, aliases: [горные удары, удароопасность месторождений, потенциал удароопасности]}
+- {concept_id: c_drilling_blasting, type: Process, domain: горное дело, label_ru: буровзрывные работы, label_en: drilling and blasting, aliases: [БВР, буровзрывные работы]}
+
+# ============================== ОБОРУДОВАНИЕ (Equipment) ======================
+- {concept_id: c_ew_cell, type: Equipment, label_ru: ванна электроэкстракции, label_en: electrowinning cell, aliases: [электролизная ванна, электролизёр, ячейка электроэкстракции]}
+- {concept_id: c_emew, type: Equipment, label_ru: ячейка EMEW, label_en: EMEW cell, aliases: [EMEW, цилиндрическая электролитическая ячейка]}
+- {concept_id: c_diaphragm_cell, type: Equipment, label_ru: диафрагменная ячейка, label_en: diaphragm cell, aliases: [диафрагменный электролизёр, диафрагма]}
+- {concept_id: c_flash_furnace, type: Equipment, label_ru: печь взвешенной плавки, label_en: flash smelting furnace, aliases: [ПВП, печь ВП, flash furnace]}
+- {concept_id: c_converter, type: Equipment, label_ru: конвертер, label_en: converter, aliases: [горизонтальный конвертер, конвертер Пирса-Смита]}
+- {concept_id: c_electric_furnace, type: Equipment, label_ru: электропечь, label_en: electric furnace, aliases: [руднотермическая печь, РТП, электротермическая печь, обеднительная электропечь]}
+- {concept_id: c_vanyukov_furnace, type: Equipment, label_ru: печь Ванюкова, label_en: Vanyukov furnace, aliases: [ПВ]}
+- {concept_id: c_fluidized_bed_furnace, type: Equipment, label_ru: печь кипящего слоя, label_en: fluidized bed furnace, aliases: [печь КС, реактор кипящего слоя]}
+- {concept_id: c_tube_furnace, type: Equipment, label_ru: трубчатая печь, label_en: tube furnace, aliases: [трубчатая вращающаяся печь, барабанная печь]}
+- {concept_id: c_autoclave, type: Equipment, label_ru: автоклав, label_en: autoclave, aliases: [автоклавный реактор]}
+- {concept_id: c_flotation_machine, type: Equipment, label_ru: флотомашина, label_en: flotation machine, aliases: [флотационная машина, флотоколонна]}
+- {concept_id: c_ball_mill, type: Equipment, label_ru: шаровая мельница, label_en: ball mill, aliases: [мельница, мельницы, стержневая мельница]}
+- {concept_id: c_sag_mill, type: Equipment, label_ru: мельница полусамоизмельчения, label_en: SAG mill, aliases: [ММС, мельница самоизмельчения, SAG, AG mill]}
+- {concept_id: c_thickener, type: Equipment, label_ru: сгуститель, label_en: thickener, aliases: [радиальный сгуститель]}
+- {concept_id: c_filter_press, type: Equipment, label_ru: фильтр-пресс, label_en: filter press, aliases: [пресс-фильтр, вакуум-фильтр]}
+- {concept_id: c_cathode, type: Equipment, label_ru: катод, label_en: cathode, aliases: [катодная основа, матрица, катод НЖ, титановый катод]}
+- {concept_id: c_anode, type: Equipment, label_ru: анод, label_en: anode, aliases: [нерастворимый анод, свинцовый анод]}
+- {concept_id: c_refractory, type: Equipment, label_ru: футеровка, label_en: refractory lining, aliases: [огнеупорная футеровка, огнеупоры, огнеупорные материалы, футеровочные материалы]}
+- {concept_id: c_kiln_ks, type: Equipment, label_ru: печь КС, label_en: roaster, aliases: [обжиговая печь]}
+
+# ============================== ПАРАМЕТРЫ (Parameter) ========================
+- {concept_id: c_current_density, type: Parameter, unit: А/м2, label_ru: плотность тока, label_en: current density, aliases: [катодная плотность тока, А/дм2, А/м²]}
+- {concept_id: c_current_efficiency, type: Parameter, unit: "%", label_ru: выход по току, label_en: current efficiency, aliases: [выход металла по току, current efficiency]}
+- {concept_id: c_temperature, type: Parameter, unit: °C, label_ru: температура, label_en: temperature, aliases: [температура процесса, температура электролита, T]}
+- {concept_id: c_ph, type: Parameter, unit: pH, label_ru: pH, label_en: pH, aliases: [рН, водородный показатель, кислотность]}
+- {concept_id: c_sulfate_conc, type: Parameter, unit: мг/л, label_ru: концентрация сульфатов, label_en: sulfate concentration, aliases: [содержание сульфатов, сульфаты, SO4]}
+- {concept_id: c_chloride_conc, type: Parameter, unit: мг/л, label_ru: концентрация хлоридов, label_en: chloride concentration, aliases: [содержание хлоридов, хлориды, Cl]}
+- {concept_id: c_calcium_conc, type: Parameter, unit: мг/л, label_ru: концентрация кальция, label_en: calcium concentration, aliases: [содержание кальция, кальций, Ca]}
+- {concept_id: c_magnesium_conc, type: Parameter, unit: мг/л, label_ru: концентрация магния, label_en: magnesium concentration, aliases: [содержание магния, магний, Mg]}
+- {concept_id: c_sodium_conc, type: Parameter, unit: мг/л, label_ru: концентрация натрия, label_en: sodium concentration, aliases: [содержание натрия, натрий, Na]}
+- {concept_id: c_dry_residue, type: Parameter, unit: мг/дм3, label_ru: сухой остаток, label_en: total dissolved solids, aliases: [TDS, минерализация, солесодержание, общее солесодержание]}
+- {concept_id: c_metal_conc, type: Parameter, unit: г/л, label_ru: концентрация металла, label_en: metal concentration, aliases: [концентрация никеля, концентрация меди, содержание металла в растворе]}
+- {concept_id: c_circulation_rate, type: Parameter, unit: м3/ч, label_ru: скорость циркуляции, label_en: circulation rate, aliases: [скорость циркуляции католита, скорость потока, расход циркуляции]}
+- {concept_id: c_flow_rate, type: Parameter, unit: м3/ч, label_ru: расход, label_en: flow rate, aliases: [объемный расход, производительность по раствору]}
+- {concept_id: c_recovery, type: Parameter, unit: "%", label_ru: извлечение, label_en: recovery, aliases: [степень извлечения, извлечение металла, recovery, извлечение в раствор]}
+- {concept_id: c_grade, type: Parameter, unit: "%", label_ru: содержание, label_en: grade, aliases: [массовая доля, содержание металла, концентрация в твердом]}
+- {concept_id: c_throughput, type: Parameter, unit: т/сут, label_ru: производительность, label_en: throughput, aliases: [производительность установки, пропускная способность, т/ч]}
+- {concept_id: c_energy_consumption, type: Parameter, unit: кВт·ч/т, label_ru: удельный расход электроэнергии, label_en: energy consumption, aliases: [расход энергии, энергозатраты, потребление энергии]}
+- {concept_id: c_stirring_speed, type: Parameter, unit: об/мин, label_ru: скорость перемешивания, label_en: stirring speed, aliases: [скорость мешалки, обороты перемешивания]}
+- {concept_id: c_microhardness, type: Parameter, unit: HV, label_ru: микротвердость, label_en: microhardness, aliases: [твердость осадка]}
+- {concept_id: c_pressure, type: Parameter, unit: атм, label_ru: давление, label_en: pressure, aliases: [рабочее давление, парциальное давление]}
+- {concept_id: c_particle_size, type: Parameter, unit: мкм, label_ru: крупность, label_en: particle size, aliases: [размер частиц, гранулометрия, крупность помола]}
+- {concept_id: c_capex, type: Parameter, unit: USD, label_ru: капитальные затраты, label_en: capital expenditure, aliases: [CAPEX, капзатраты, капвложения]}
+- {concept_id: c_opex, type: Parameter, unit: USD, label_ru: эксплуатационные затраты, label_en: operating expenditure, aliases: [OPEX, операционные затраты, себестоимость]}
+
+# ============================== ОБЪЕКТЫ / ОРГАНИЗАЦИИ (Facility) ==============
+- {concept_id: c_lgm, type: Facility, label_ru: Лаборатория гидрометаллургии, label_en: Hydrometallurgy Laboratory, aliases: [ЛГМ]}
+- {concept_id: c_lpm, type: Facility, label_ru: Лаборатория пирометаллургии, label_en: Pyrometallurgy Laboratory, aliases: [ЛПМ]}
+- {concept_id: c_iac, type: Facility, label_ru: Информационно-аналитический центр, label_en: Information and Analytics Center, aliases: [ИАЦ]}
+- {concept_id: c_gipronickel, type: Facility, label_ru: Институт Гипроникель, label_en: Gipronickel Institute, aliases: [Гипроникель, ООО Институт Гипроникель]}
+- {concept_id: c_kgmk, type: Facility, label_ru: Кольская ГМК, label_en: Kola MMC, aliases: [КГМК, Кольская горно-металлургическая компания, АО Кольская ГМК]}
+- {concept_id: c_nornickel, type: Facility, label_ru: Норникель, label_en: Nornickel, aliases: [ПАО ГМК Норильский никель, Норильский никель, MMC Norilsk Nickel]}
+- {concept_id: c_huelva, type: Facility, label_ru: Металлургический комплекс Уэльва, label_en: Huelva smelter, aliases: [Уэльва, завод Уэльва, Huelva, Atlantic Copper]}
+- {concept_id: c_smp, type: Facility, label_ru: завод Sao Miguel Paulista, label_en: Sao Miguel Paulista, aliases: [Sao Miguel Paulista, Votorantim Metais]}
+- {concept_id: c_rustenburg, type: Facility, label_ru: завод Rustenburg, label_en: Rustenburg refinery, aliases: [Rustenburg, Растенбург]}
+- {concept_id: c_long_harbour, type: Facility, label_ru: завод Long Harbour, label_en: Long Harbour, aliases: [Long Harbour, Лонг-Харбор, Vale Long Harbour]}
+- {concept_id: c_mount_keith, type: Facility, label_ru: предприятие Mount Keith, label_en: Mount Keith, aliases: [Mount Keith, Маунт-Кит]}
+- {concept_id: c_cerro_matoso, type: Facility, label_ru: Cerro Matoso, label_en: Cerro Matoso, aliases: [Серро-Матосо]}
+- {concept_id: c_las_cruces, type: Facility, label_ru: Las Cruces, label_en: Las Cruces, aliases: [Лас-Крусес]}
+- {concept_id: c_koniambo, type: Facility, label_ru: Koniambo, label_en: Koniambo, aliases: [Кониамбо, Koniambo Nickel]}
+- {concept_id: c_goro, type: Facility, label_ru: Vale Goro, label_en: Vale Goro, aliases: [Goro, Горо, Новая Каледония]}
+- {concept_id: c_norilsk_plant, type: Facility, label_ru: Надеждинский металлургический завод, label_en: Nadezhda Metallurgical Plant, aliases: [Надеждинский завод, НМЗ, Медный завод]}

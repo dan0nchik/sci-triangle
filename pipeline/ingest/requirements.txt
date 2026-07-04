@@ -1,0 +1,10 @@
+# Direction A (ingest) — pinned deps. Python 3.12–3.14.
+# System tools used at runtime (not pip): unar (rar/7z, `brew install unar`),
+# textutil (macOS, legacy .doc), soffice/LibreOffice (fallback .doc/.docm).
+PyMuPDF==1.28.0
+python-docx==1.2.0
+python-pptx==1.0.2
+openpyxl==3.1.5
+xlrd==2.0.2
+langdetect==1.0.9
+requests==2.34.2
