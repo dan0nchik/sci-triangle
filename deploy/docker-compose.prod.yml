@@ -91,7 +91,9 @@ services:
       timeout: 10s
       retries: 10
       start_period: 600s
-    mem_limit: 2g
+    # Qwen3-0.6B loads in fp32 on CPU (~2.4 GB weights + torch runtime); 2g OOM-kills
+    # the process mid-load, so give it 4g headroom.
+    mem_limit: 4g
     restart: unless-stopped
 
   api:
