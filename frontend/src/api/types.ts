@@ -363,6 +363,19 @@ export interface ReviewResult {
   updated_at?: string
 }
 
+// ---- Поиск концептов для сравнения (GET /api/concepts) ------------------------
+// Контракт: ?type=Process|Equipment|Material&q=<подстрока>&comparable=1&limit=20 —
+// поиск по name/name_en/aliases всех узлов графа (регистронезависимый CONTAINS);
+// comparable=1 → только узлы с operates_at_condition/measured/uses_material.
+export interface ConceptHit {
+  id: string
+  type: NodeType
+  name: string
+  name_en?: string
+  aliases?: string[]
+  comparable?: boolean // есть параметры для сравнения
+}
+
 // ---- Загрузка документа (docs/CONTRACT_UPLOAD.md) -----------------------------
 export type UploadStage =
   | 'queued'

@@ -18,6 +18,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import os
 import sqlite3
 import sys
 import time
@@ -26,11 +27,17 @@ from pathlib import Path
 _ROOT = Path(__file__).resolve().parent.parent.parent
 sys.path.insert(0, str(_ROOT))
 sys.path.insert(0, str(_ROOT / "pipeline" / "extract"))
+# shared/ must be importable as a top-level package so the gateway's
+# `import yandex_client` (bare) resolves — otherwise YandexBackend._yc=None,
+# yandex is marked unavailable, and the batch silently falls through to a
+# fallback provider (gigachat/groq) with 0/0 token accounting. This was the
+# root cause of the mass "processed but failed" chunks.
+sys.path.insert(0, str(_ROOT / "shared"))
 
 # Completion goes through the multi-provider gateway (yandex / openai_compatible /
 # mock via .env). USAGE is the gateway's cross-provider accumulator (superset of the
 # yandex_client counters, so the progress log is unchanged for LLM_PROVIDER=yandex).
-from shared.llm_gateway import gateway as _gateway, USAGE  # noqa: E402
+from shared.llm_gateway import gateway as _gateway, USAGE, _validate_schema  # noqa: E402
 import prompts  # noqa: E402
 import normalize as norm  # noqa: E402
 
@@ -103,7 +110,20 @@ def _ckpt_conn() -> sqlite3.Connection:
 
 
 def _done_ids(conn) -> set[str]:
-    return {r[0] for r in conn.execute("SELECT chunk_id FROM extractions").fetchall()}
+    """Chunks considered DONE = only those with a validated success (ok=1).
+
+    Failures (ok=0: API errors, invalid/parse-failed JSON) are intentionally NOT
+    treated as done, so they are re-attempted on the next run. This replaces the
+    previous behaviour (any recorded chunk_id was skipped), which permanently
+    stranded failed chunks and froze the graph."""
+    return {r[0] for r in conn.execute(
+        "SELECT chunk_id FROM extractions WHERE ok=1").fetchall()}
+
+
+def _failed_ids(conn) -> set[str]:
+    """Chunks with a recorded failure (ok=0) — targets of --retry-failed."""
+    return {r[0] for r in conn.execute(
+        "SELECT chunk_id FROM extractions WHERE ok=0").fetchall()}
 
 
 # --- загрузка чанков --------------------------------------------------------
@@ -141,14 +161,23 @@ def prioritize(chunks: list[dict]) -> list[dict]:
 
 
 # --- фаза 1: LLM-экстракция -------------------------------------------------
-def run_extraction(input_path: Path, limit: int | None, batch_size: int, model: str):
+def run_extraction(input_path: Path, limit: int | None, batch_size: int, model: str,
+                   retry_failed: bool = False):
     conn = _ckpt_conn()
-    done = _done_ids(conn)
+    done = _done_ids(conn)            # ok=1 — действительно готово
+    failed = _failed_ids(conn)        # ok=0 — подлежат ретраю
     chunks = prioritize(load_chunks(input_path))
     todo = [c for c in chunks if c["chunk_id"] not in done]
+    if retry_failed:
+        # режим переобработки: только ранее упавшие чанки (не начинаем новые)
+        todo = [c for c in todo if c["chunk_id"] in failed]
+    # приоритет ретраю упавших: сперва чиним failed, затем новые
+    todo.sort(key=lambda c: 0 if c["chunk_id"] in failed else 1)
     if limit:
         todo = todo[:limit]
-    print(f"[extract] всего чанков: {len(chunks)} | уже готово: {len(done)} | к обработке: {len(todo)}")
+    print(f"[extract] всего чанков: {len(chunks)} | готово(ok=1): {len(done)} | "
+          f"упало(ok=0): {len(failed)} | к обработке: {len(todo)}"
+          f"{' [retry-failed]' if retry_failed else ''}")
     if not todo:
         return
 
@@ -156,6 +185,7 @@ def run_extraction(input_path: Path, limit: int | None, batch_size: int, model: 
     db_lock = threading.Lock()
     t0 = time.time()
     processed = 0
+    counters = {"ok": 0, "fail": 0}
     for i in range(0, len(todo), batch_size):
         batch = todo[i : i + batch_size]
         tasks = [
@@ -165,17 +195,27 @@ def run_extraction(input_path: Path, limit: int | None, batch_size: int, model: 
         def _save(idx, result):
             c = batch[idx]
             if isinstance(result, Exception):
+                # API-ошибка (сеть/4xx/5xx) — НЕ считаем обработанным (ok=0 -> ретрай)
                 row = (c["chunk_id"], c["doc_id"], c.get("section_title"), c["text"],
                        None, 0, str(result)[:400], time.time())
             else:
                 payload = result.get("json")
-                ok = 1 if isinstance(payload, dict) else 0
+                # ok=1 ТОЛЬКО если это dict И проходит jsonSchema-валидацию.
+                # Иначе (пустой ответ / невалидный JSON / несоответствие схеме) —
+                # ok=0 с диагностикой, чанк переобрабатывается при след. запуске.
+                if not isinstance(payload, dict):
+                    ok, err = 0, "json_parse_failed"
+                elif not _validate_schema(payload, prompts.EXTRACTION_SCHEMA):
+                    ok, err = 0, "schema_invalid"
+                else:
+                    ok, err = 1, None
                 row = (c["chunk_id"], c["doc_id"], c.get("section_title"), c["text"],
                        json.dumps(payload, ensure_ascii=False) if payload else None,
-                       ok, None if ok else "json_parse_failed", time.time())
+                       ok, err, time.time())
             with db_lock:
                 conn.execute("INSERT OR REPLACE INTO extractions VALUES (?,?,?,?,?,?,?,?)", row)
                 conn.commit()
+                counters["ok" if row[5] == 1 else "fail"] += 1
 
         complete_batch(
             tasks, model=model, json_schema=prompts.EXTRACTION_SCHEMA,
@@ -184,7 +224,8 @@ def run_extraction(input_path: Path, limit: int | None, batch_size: int, model: 
         processed += len(batch)
         el = time.time() - t0
         u = USAGE.snapshot()
-        print(f"[extract] {processed}/{len(todo)} чанков | {el:.0f}s | "
+        print(f"[extract] {processed}/{len(todo)} чанков | ok:{counters['ok']} "
+              f"fail:{counters['fail']} | {el:.0f}s | "
               f"toks in/out {u['completion_input_tokens']}/{u['completion_output_tokens']} | "
               f"429:{u['rate_limit_hits']} retries:{u['retries']}")
     conn.close()
@@ -620,7 +661,22 @@ def main():
     ap.add_argument("--model", default="lite")
     ap.add_argument("--build-only", action="store_true")
     ap.add_argument("--no-embed-match", action="store_true")
+    ap.add_argument("--retry-failed", action="store_true",
+                    help="переобработать только ранее упавшие чанки (ok=0)")
+    ap.add_argument("--keep-proxy", action="store_true",
+                    help="НЕ снимать глобальный HTTP(S)_PROXY (по умолчанию снимаем: "
+                         "глобальный прокси ломает прямой доступ к YandexGPT)")
     args = ap.parse_args()
+
+    # Глобальный HTTP(S)_PROXY в окружении заставляет requests гнать вызовы
+    # YandexGPT через прокси (в проде — мёртвый 167.224.64.184:3128 -> Network
+    # unreachable). YandexGPT доступен напрямую; провайдер-специфичные прокси
+    # (GROQ_PROXY и т.п.) задаются в .env и применяются точечно самим шлюзом.
+    if not args.keep_proxy:
+        for _pk in ("HTTP_PROXY", "HTTPS_PROXY", "ALL_PROXY",
+                    "http_proxy", "https_proxy", "all_proxy"):
+            os.environ.pop(_pk, None)
+        os.environ.setdefault("NO_PROXY", "*")
 
     inp = Path(args.input)
     if not inp.exists():
@@ -629,7 +685,8 @@ def main():
         inp = dev
 
     if not args.build_only:
-        run_extraction(inp, args.limit, args.batch_size, args.model)
+        run_extraction(inp, args.limit, args.batch_size, args.model,
+                       retry_failed=args.retry_failed)
 
     print("[build] строю граф из накопленных экстракций...")
     gb = build_graph(use_embedding=not args.no_embed_match)

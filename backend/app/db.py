@@ -571,6 +571,52 @@ def patch_edge(edge_id: str, author: str, comment: Optional[str],
     return c > 0
 
 
+def search_concepts(type: Optional[str] = None, q: Optional[str] = None,
+                    comparable: bool = False, limit: int = 20) -> List[Dict[str, Any]]:
+    """Graph-wide concept search for the Compare page dropdown.
+
+    Matches name/name_en/aliases (case-insensitive CONTAINS) over ALL Entity nodes of
+    the given `type` (Process|Equipment|Material|…). `comparable` keeps only nodes with
+    at least one operates_at_condition | measured | uses_material link (in either
+    direction) — those are the ones worth comparing. Comparable nodes sort first, then
+    by link count desc. LIMIT + a per-query transaction timeout keep it cheap.
+    """
+    from neo4j import Query  # local import: keeps module import surface unchanged
+
+    limit = max(1, min(int(limit or 20), 200))
+    ql = (q or "").strip().lower() or None
+    cypher = """
+    MATCH (n:Entity)
+    WHERE ($type IS NULL OR n.type = $type)
+      AND ($q IS NULL
+           OR toLower(coalesce(n.name,'')) CONTAINS $q
+           OR toLower(coalesce(n.name_en,'')) CONTAINS $q
+           OR any(a IN coalesce(n.aliases, []) WHERE toLower(a) CONTAINS $q))
+    OPTIONAL MATCH (n)-[r:operates_at_condition|measured|uses_material]-()
+    WITH n, count(r) AS n_links
+    WHERE ($comparable = false OR n_links > 0)
+    RETURN n, n_links
+    ORDER BY (n_links > 0) DESC, n_links DESC, toLower(coalesce(n.name,''))
+    LIMIT $limit
+    """
+    out: List[Dict[str, Any]] = []
+    params = {"type": type or None, "q": ql, "comparable": bool(comparable),
+              "limit": limit}
+    try:
+        with driver().session() as s:
+            for rec in s.run(Query(cypher, timeout=8.0), **params):
+                d = _node_dict(dict(rec["n"]))
+                n_links = int(rec["n_links"])
+                out.append({
+                    "id": d["id"], "type": d["type"],
+                    "name": d["name"], "name_en": d["name_en"],
+                    "comparable": n_links > 0, "n_links": n_links,
+                })
+    except Exception:
+        return []
+    return out
+
+
 def review_assertion(assert_id: str, status: str, author: str, timestamp: str) -> bool:
     q = """
     MATCH (a:Assertion {id:$id})

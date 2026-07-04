@@ -29,7 +29,7 @@ from contextlib import asynccontextmanager
 from fastapi import Depends, FastAPI, File, Header, HTTPException, Query, UploadFile
 from fastapi.middleware.cors import CORSMiddleware
 
-from app import (analytics, auth, db, exporters, observability,
+from app import (analytics, answer_cache, auth, db, exporters, observability,
                  search as search_mod, store, upload as upload_mod)
 from app.models import (
     AuditLogResponse, CompareResponse, CompareRow, DocumentResponse,
@@ -95,13 +95,15 @@ def api_me(role: str = Depends(auth.current_role)):
 
 # ------------------------------------------------------------------ search
 @app.post("/api/search", response_model=SearchResponse)
-def api_search(req: SearchRequest, authorization: Optional[str] = Header(None)):
+def api_search(req: SearchRequest, authorization: Optional[str] = Header(None),
+               skip_cache: bool = Query(False)):
     role = _resolve_search_role(authorization, req.role_ctx)
     filters = req.filters.model_dump(exclude_none=True) if req.filters else {}
     # UI sends geography='all' / empty strings meaning «без фильтра» — drop them,
     # otherwise ES would filter on the literal term and return nothing.
     filters = {k: v for k, v in filters.items() if v not in ("", "all")}
-    result = search_mod.search(req.query, filters=filters, role_ctx=role)
+    result = search_mod.search(req.query, filters=filters, role_ctx=role,
+                               skip_cache=skip_cache)
     store.cache_search(result["search_id"], req.query, role, result)
     store.audit_log(role, "/api/search", "search",
                     params={"query": req.query, "filters": filters},
@@ -155,6 +157,18 @@ def api_node(node_id: str, depth: int = Query(2, ge=1, le=4)):
 @app.get("/api/graph/overview")
 def api_overview(limit: int = Query(300, ge=1, le=2000)):
     return db.overview(limit=limit)
+
+
+# ------------------------------------------------------------------ concepts (Compare page)
+@app.get("/api/concepts")
+def api_concepts(type: Optional[str] = Query(None),
+                 q: Optional[str] = Query(None),
+                 comparable: bool = Query(False),
+                 limit: int = Query(20, ge=1, le=200)):
+    """Graph-wide concept lookup for the «Сравнение» dropdown. Returns both a bare
+    array and a {concepts:[...]} envelope (frontend adapter accepts either)."""
+    concepts = db.search_concepts(type=type, q=q, comparable=comparable, limit=limit)
+    return {"concepts": concepts}
 
 
 # ------------------------------------------------------------------ documents
@@ -240,6 +254,10 @@ def api_stats():
         experts = analytics.expert_map(limit=15)
     except Exception:
         experts = []
+    try:
+        cache_stats = answer_cache.stats()
+    except Exception:
+        cache_stats = {}
 
     node_types = s.get("node_types") or {}
     by_year = [{"year": int(y), "n_docs": n}
@@ -265,7 +283,18 @@ def api_stats():
         "material_process_gaps": material_process_gaps,
         "top_contradictions": top_contradictions,
         "experts": experts,
+        "cache": cache_stats,
     }
+
+
+# ------------------------------------------------------------------ answer-cache (Answer-Cache agent)
+@app.delete("/api/cache")
+def api_clear_cache():
+    """Очистить кэш ответов /api/search (для демо/защиты; RBAC отменён)."""
+    n = answer_cache.clear()
+    store.audit_log("anonymous", "/api/cache", "cache_clear",
+                    result_counts={"cleared": n})
+    return {"cleared": n}
 
 
 def _global_gaps() -> List[str]:

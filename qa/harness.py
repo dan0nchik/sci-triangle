@@ -199,9 +199,15 @@ def score_case(case: Dict[str, Any], resp: Dict[str, Any], docidx: DocIndex,
     }
 
 
+# QA measures the pipeline honestly (no answer-cache) by default; set QA_USE_CACHE=1
+# to exercise the cache path instead.
+_SKIP_CACHE = os.environ.get("QA_USE_CACHE", "0").lower() not in ("1", "true", "yes")
+
+
 def run_query(client: httpx.Client, api_base: str, query: str) -> (Dict[str, Any], float):
     t0 = time.time()
-    r = client.post(f"{api_base}/api/search", json={"query": query}, timeout=60)
+    r = client.post(f"{api_base}/api/search", json={"query": query},
+                    params={"skip_cache": _SKIP_CACHE}, timeout=60)
     latency = (time.time() - t0) * 1000
     r.raise_for_status()
     return r.json(), latency

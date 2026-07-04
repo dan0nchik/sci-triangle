@@ -5,6 +5,8 @@
 import type {
   AuditEntry,
   Citation,
+  ConceptHit,
+  NodeType,
   CompareResponse,
   DocumentMeta,
   EdgePatch,
@@ -890,4 +892,37 @@ export async function mockUploadStatus(job_id: string): Promise<UploadJobStatus>
     error: null,
     result: cur.stage === 'done' ? mockUploadResult(job.doc_id, job.filename) : null,
   }
+}
+
+// --- Поиск концептов для сравнения (GET /api/concepts) ----------------------
+// Демо: поиск по name/name_en/aliases всех узлов объединённого графа;
+// comparable = узел имеет operates_at_condition / measured / uses_material.
+const COMPARABLE_EDGE_TYPES = new Set(['operates_at_condition', 'measured', 'uses_material'])
+
+export async function mockConcepts(
+  q: string,
+  type?: NodeType,
+  comparableOnly?: boolean,
+  limit = 20,
+): Promise<ConceptHit[]> {
+  await delay(180)
+  const g = mockOverviewGraph()
+  const withParams = new Set<string>()
+  for (const e of g.edges) {
+    if (COMPARABLE_EDGE_TYPES.has(e.type)) withParams.add(e.src)
+  }
+  const needle = q.trim().toLowerCase()
+  const out: ConceptHit[] = []
+  for (const n of g.nodes) {
+    if (type && n.type !== type) continue
+    if (!type && !['Process', 'Equipment', 'Material'].includes(n.type)) continue
+    const hay = [n.name, n.name_en ?? '', ...(n.aliases ?? [])].join(' ').toLowerCase()
+    if (needle && !hay.includes(needle)) continue
+    const comparable = withParams.has(n.id)
+    if (comparableOnly && !comparable) continue
+    out.push({ id: n.id, type: n.type, name: n.name, name_en: n.name_en, aliases: n.aliases, comparable })
+    if (out.length >= limit) break
+  }
+  // сравнимые — первыми
+  return out.sort((a, b) => Number(b.comparable) - Number(a.comparable))
 }

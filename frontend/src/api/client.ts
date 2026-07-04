@@ -10,6 +10,7 @@
 import type {
   AuditEntry,
   CompareResponse,
+  ConceptHit,
   DocumentMeta,
   EdgePatch,
   ExportFormat,
@@ -34,6 +35,7 @@ import {
   mockAudit,
   mockAuthToken,
   mockCompare,
+  mockConcepts,
   mockDocument,
   mockExperts,
   mockExport,
@@ -332,6 +334,40 @@ function nameFromId(id: string): string {
   return id.replace(/^[a-z]+:/, '').replace(/_/g, ' ')
 }
 
+// Фолбэк для /api/concepts, пока эндпоинт не задеплоен: клиентский поиск по
+// кэшированному обзорному графу (comparable — по типам рёбер, как в контракте).
+const COMPARABLE_EDGES = new Set(['operates_at_condition', 'measured', 'uses_material'])
+let overviewCache: Promise<Subgraph> | null = null
+
+async function conceptsFromOverview(
+  q: string,
+  type?: 'Process' | 'Equipment' | 'Material',
+  comparableOnly = false,
+  limit = 20,
+): Promise<ConceptHit[]> {
+  try {
+    overviewCache ??= http<Subgraph>('/api/graph/overview?limit=300')
+    const g = await overviewCache
+    const withParams = new Set<string>()
+    for (const e of g.edges) if (COMPARABLE_EDGES.has(e.type)) withParams.add(e.src)
+    const needle = q.trim().toLowerCase()
+    const out: ConceptHit[] = []
+    for (const n of g.nodes) {
+      if (type && n.type !== type) continue
+      if (!type && !['Process', 'Equipment', 'Material'].includes(n.type)) continue
+      const hay = [n.name, n.name_en ?? '', ...(n.aliases ?? [])].join(' ').toLowerCase()
+      if (needle && !hay.includes(needle)) continue
+      const comparable = withParams.has(n.id)
+      if (comparableOnly && !comparable) continue
+      out.push({ id: n.id, type: n.type, name: n.name, name_en: n.name_en, aliases: n.aliases, comparable })
+      if (out.length >= limit) break
+    }
+    return out.sort((a, b) => Number(b.comparable) - Number(a.comparable))
+  } catch {
+    return []
+  }
+}
+
 // ============================================================================
 // Публичный API
 // ============================================================================
@@ -487,6 +523,40 @@ export const api = {
     } catch {
       // RBAC ещё не задеплоен — демо-токен локально
       return mockAuthToken(role)
+    }
+  },
+
+  // ---- Поиск концептов для сравнения (GET /api/concepts) ----------------------
+  // Контракт: type=Process|Equipment|Material, q=<подстрока>, comparable=1, limit.
+  // Пока эндпоинт не задеплоен на живом бэкенде (404) — фолбэк: клиентский поиск
+  // по кэшированному обзорному графу (ограничен ~300 узлами; полный охват даст
+  // серверный Cypher CONTAINS — за backend-агентом).
+  async concepts(
+    q: string,
+    type?: 'Process' | 'Equipment' | 'Material',
+    comparableOnly = false,
+    limit = 20,
+  ): Promise<ConceptHit[]> {
+    if (isMockMode) return mockConcepts(q, type, comparableOnly, limit)
+    try {
+      const qs = new URLSearchParams()
+      qs.set('q', q)
+      if (type) qs.set('type', type)
+      if (comparableOnly) qs.set('comparable', '1')
+      qs.set('limit', String(limit))
+      const raw = await http<AnyObj>(`/api/concepts?${qs.toString()}`)
+      const list = (Array.isArray(raw) ? raw : (raw.concepts ?? raw.items ?? [])) as AnyObj[]
+      return list.map((c) => ({
+        id: String(c.id),
+        type: (c.type ?? 'Process') as ConceptHit['type'],
+        name: String(c.name ?? c.id),
+        name_en: c.name_en != null ? String(c.name_en) : undefined,
+        aliases: (c.aliases as string[] | undefined) ?? undefined,
+        comparable: c.comparable != null ? Boolean(c.comparable) : undefined,
+      }))
+    } catch {
+      // фолбэк: поиск по обзорному графу на клиенте
+      return conceptsFromOverview(q, type, comparableOnly, limit)
     }
   },
 

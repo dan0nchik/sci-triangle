@@ -143,6 +143,9 @@ class SearchResponse(BaseModel):
     retrieval_trace: Optional[RetrievalTrace] = None
     took_ms: int = 0
     search_id: str = ""
+    # true when served from the answer-cache (Answer-Cache agent); took_ms then
+    # reflects the cache-lookup latency, not the original pipeline run.
+    cached: bool = False
 
 
 # ------------------------------------------------------------------ graph
@@ -212,6 +215,8 @@ class StatsResponse(BaseModel):
     material_process_gaps: List[Dict[str, Any]] = Field(default_factory=list)
     top_contradictions: List[Dict[str, Any]] = Field(default_factory=list)
     experts: List[ExpertRef] = Field(default_factory=list)
+    # answer-cache stats (Answer-Cache agent): {entries, hits, hit_rate, size_mb}
+    cache: Dict[str, Any] = Field(default_factory=dict)
 
 
 class ExpertsResponse(BaseModel):

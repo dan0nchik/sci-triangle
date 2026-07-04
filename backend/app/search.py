@@ -21,7 +21,7 @@ from typing import Any, Dict, List, Optional
 BACKEND = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(BACKEND))
 
-from app import auth, db, planner, retrieval, synthesis  # noqa: E402
+from app import answer_cache, auth, db, planner, retrieval, synthesis  # noqa: E402
 
 
 def parse_intent(query: str) -> Dict[str, Any]:
@@ -40,9 +40,21 @@ def _dedupe_by_id(items: List[Dict]) -> List[Dict]:
 
 
 def search(query: str, filters: Optional[Dict] = None,
-           role_ctx: str = "researcher") -> Dict[str, Any]:
+           role_ctx: str = "researcher", skip_cache: bool = False) -> Dict[str, Any]:
     t0 = time.time()
     filters = filters or {}
+
+    # 0) answer-cache lookup (Answer-Cache agent). A repeated identical question is
+    # served straight from sqlite — no LLM, no retrieval. `data_version` folded into the
+    # key means a grown corpus/graph/embedding matrix self-invalidates the entry.
+    # skip_cache=true (demo "live" mode / QA harness) bypasses both read and write.
+    dv = None
+    if not skip_cache:
+        dv = answer_cache.data_version()
+        hit = answer_cache.lookup(query, filters, role_ctx, dv=dv)
+        if hit is not None:
+            hit["took_ms"] = int((time.time() - t0) * 1000)  # real lookup latency
+            return hit
 
     # 1) plan
     intent = planner.plan(query)
@@ -100,7 +112,7 @@ def search(query: str, filters: Optional[Dict] = None,
     gaps = list(syn.get("gaps") or [])
     gaps += detect_gaps(intent, assertions, citations)
 
-    return {
+    result = {
         "answer_md": syn["answer_md"],
         "intent": _contract_intent(intent),
         "citations": citations,
@@ -112,7 +124,16 @@ def search(query: str, filters: Optional[Dict] = None,
         "retrieval_trace": _build_retrieval_trace(intent, ret, citations),
         "took_ms": int((time.time() - t0) * 1000),
         "search_id": "s_" + uuid.uuid4().hex[:12],
+        "cached": False,
     }
+
+    # store into the answer-cache (skips fallback-template answers; short TTL for
+    # honest "not found"). `dv` reused from the lookup so read/write share a version.
+    if not skip_cache:
+        answer_cache.store(query, filters, role_ctx, result,
+                           synth=syn.get("synth"), dv=dv)
+
+    return result
 
 
 # --------------------------------------------------------------------- retrieval trace

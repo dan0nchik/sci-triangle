@@ -1,6 +1,6 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import { api } from '../api/client'
-import type { CompareResponse, GraphNode } from '../api/types'
+import type { CompareResponse, ConceptHit, GraphNode } from '../api/types'
 import { downloadCsv } from '../lib/download'
 import { useApp } from '../store'
 
@@ -187,6 +187,15 @@ export function ComparePage() {
   )
 }
 
+const TYPE_SHORT: Record<string, string> = {
+  Process: 'процесс',
+  Equipment: 'оборудование',
+  Material: 'материал',
+}
+
+// Автокомплит технологий: серверный поиск по ВСЕМУ графу через GET /api/concepts
+// (debounce 250 мс, Process+Equipment+Material параллельно); быстрый выбор из
+// последнего ответа/overview остаётся доп-источником (пустой запрос).
 function TechSelect({
   label,
   value,
@@ -199,27 +208,87 @@ function TechSelect({
   options: GraphNode[]
 }) {
   const [q, setQ] = useState('')
-  const filtered = q
-    ? options.filter((o) => (o.name + ' ' + o.id).toLowerCase().includes(q.toLowerCase()))
-    : options
+  const [remote, setRemote] = useState<ConceptHit[] | null>(null)
+  const [searching, setSearching] = useState(false)
+  const debounceRef = useRef<number | null>(null)
+  const reqSeq = useRef(0)
+
+  // debounce 250 мс + защита от гонок устаревших ответов
+  useEffect(() => {
+    if (debounceRef.current) window.clearTimeout(debounceRef.current)
+    const needle = q.trim()
+    if (!needle) {
+      setRemote(null)
+      setSearching(false)
+      return
+    }
+    setSearching(true)
+    debounceRef.current = window.setTimeout(async () => {
+      const seq = ++reqSeq.current
+      try {
+        const [proc, equip, mat] = await Promise.all([
+          api.concepts(needle, 'Process'),
+          api.concepts(needle, 'Equipment'),
+          api.concepts(needle, 'Material'),
+        ])
+        if (seq !== reqSeq.current) return // пришёл устаревший ответ
+        const map = new Map<string, ConceptHit>()
+        for (const c of [...proc, ...equip, ...mat]) if (!map.has(c.id)) map.set(c.id, c)
+        setRemote(
+          [...map.values()].sort((a, b) => Number(b.comparable ?? 0) - Number(a.comparable ?? 0)),
+        )
+      } catch {
+        if (seq === reqSeq.current) setRemote([])
+      } finally {
+        if (seq === reqSeq.current) setSearching(false)
+      }
+    }, 250)
+    return () => {
+      if (debounceRef.current) window.clearTimeout(debounceRef.current)
+    }
+  }, [q])
+
+  // Пустой запрос — быстрый выбор из ответа поиска/overview (доп-источник).
+  const items: ConceptHit[] = q.trim()
+    ? (remote ?? [])
+    : options.map((o) => ({ id: o.id, type: o.type, name: o.name, name_en: o.name_en }))
+
+  const selected = items.find((i) => i.id === value)
+
   return (
     <div className="card p-4 space-y-2">
       <label className="text-xs uppercase tracking-wide text-fg-muted">{label}</label>
       <input
         value={q}
         onChange={(e) => setQ(e.target.value)}
-        placeholder="фильтр по названию…"
+        placeholder="напр. электроэкстракция, обратный осмос, выщелачивание…"
         className="w-full bg-ink-800 border border-ink-600 rounded-lg px-2.5 py-1.5 text-sm text-fg-body placeholder:text-fg-faint focus:outline-none focus:border-accent"
       />
+      <div className="flex items-center justify-between text-[11px] text-fg-muted min-h-[16px]">
+        <span>
+          {searching
+            ? 'поиск по графу…'
+            : q.trim()
+              ? `найдено: ${items.length} (по всему графу)`
+              : 'быстрый выбор из последнего ответа'}
+        </span>
+        {items.some((i) => i.comparable) && <span className="text-emerald-700">● есть параметры</span>}
+      </div>
       <select
         value={value}
         onChange={(e) => onChange(e.target.value)}
         size={5}
         className="w-full bg-ink-800 border border-ink-600 rounded-lg px-2 py-1.5 text-sm text-fg-body focus:outline-none focus:border-accent"
       >
-        {filtered.map((o) => (
+        {/* выбранное значение остаётся видимым, даже если выпало из результатов */}
+        {selected == null && value && (
+          <option value={value}>{value.split(':').pop()?.replace(/_/g, ' ')} (выбрано)</option>
+        )}
+        {items.map((o) => (
           <option key={o.id} value={o.id}>
-            {o.name} ({o.type === 'Process' ? 'процесс' : 'материал'})
+            {o.comparable ? '● ' : ''}
+            {o.name} ({TYPE_SHORT[o.type] ?? o.type}
+            {o.comparable ? ' · есть параметры' : ''})
           </option>
         ))}
       </select>
