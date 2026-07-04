@@ -41,14 +41,14 @@ Heap: Neo4j 1–1.5 GB, ES 1.5 GB (fits 11 GB RAM).
 ```bash
 cd /opt/sci-tangle
 # start / rebuild everything
-docker compose -f deploy/docker-compose.prod.yml up -d --build
+docker compose --env-file .env -f deploy/docker-compose.prod.yml up -d --build
 # status / logs
-docker compose -f deploy/docker-compose.prod.yml ps
-docker compose -f deploy/docker-compose.prod.yml logs -f api
+docker compose --env-file .env -f deploy/docker-compose.prod.yml ps
+docker compose --env-file .env -f deploy/docker-compose.prod.yml logs -f api
 # restart one service (e.g. after editing .env)
-docker compose -f deploy/docker-compose.prod.yml up -d api
+docker compose --env-file .env -f deploy/docker-compose.prod.yml up -d api
 # stop
-docker compose -f deploy/docker-compose.prod.yml down          # keeps volumes/data
+docker compose --env-file .env -f deploy/docker-compose.prod.yml down          # keeps volumes/data
 ```
 
 Health: `curl -s localhost/api/health` → `{neo4j, es, corpus_docs, graph_nodes, ...}`.
@@ -59,7 +59,7 @@ Health: `curl -s localhost/api/health` → `{neo4j, es, corpus_docs, graph_nodes
 
 Workflow `.github/workflows/deploy.yml` runs on every push to `main`:
 SSH to this host → `cd /opt/sci-tangle && git reset --hard origin/main` →
-`docker compose -f deploy/docker-compose.prod.yml up -d --build`.
+`docker compose --env-file .env -f deploy/docker-compose.prod.yml up -d --build`.
 **Data is never touched** (volumes + `corpus/`/`graph/`/`data/` persist).
 
 Secrets (in the GitHub repo): `DEPLOY_SSH_KEY` (ed25519 private key),
@@ -80,10 +80,10 @@ mounted jsonl (run **inside** the api container — it can reach `neo4j:7687` /
 ```bash
 cd /opt/sci-tangle
 # Neo4j graph (idempotent MERGE)
-docker compose -f deploy/docker-compose.prod.yml exec api \
+docker compose --env-file .env -f deploy/docker-compose.prod.yml exec api \
   python loader.py --nodes /graph/nodes.jsonl --edges /graph/edges.jsonl
 # Elasticsearch (documents + chunks + conditions)
-docker compose -f deploy/docker-compose.prod.yml exec api \
+docker compose --env-file .env -f deploy/docker-compose.prod.yml exec api \
   python es_indexer.py --recreate
 ```
 
@@ -98,7 +98,7 @@ The key in `.env` is currently **dead (403)**. When organizers issue a new one:
 ```bash
 cd /opt/sci-tangle
 sed -i 's|^YANDEX_API_KEY=.*|YANDEX_API_KEY=<NEW_KEY>|' .env   # or edit by hand
-docker compose -f deploy/docker-compose.prod.yml up -d api      # picks up new value
+docker compose --env-file .env -f deploy/docker-compose.prod.yml up -d api      # picks up new value
 curl -s localhost/api/health | python3 -c 'import sys,json;print(json.load(sys.stdin)["llm"])'
 ```
 

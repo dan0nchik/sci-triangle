@@ -36,10 +36,13 @@ jobs:
           git fetch --all --prune
           git reset --hard origin/main
           echo "==> build + up (data volumes untouched)"
-          docker compose -f deploy/docker-compose.prod.yml up -d --build --remove-orphans
+          # --env-file .env is REQUIRED: with -f deploy/... the compose project
+          # dir is deploy/, so the repo-root .env is not auto-loaded and
+          # ${VITE_API_URL}/${YANDEX_API_KEY} would resolve empty.
+          docker compose --env-file .env -f deploy/docker-compose.prod.yml up -d --build --remove-orphans
           docker image prune -f >/dev/null 2>&1 || true
           echo "==> status"
-          docker compose -f deploy/docker-compose.prod.yml ps
+          docker compose --env-file .env -f deploy/docker-compose.prod.yml ps
           EOSSH
 
       - name: Smoke check /api/health

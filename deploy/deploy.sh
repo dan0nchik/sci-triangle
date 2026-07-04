@@ -9,7 +9,10 @@ set -euo pipefail
 REPO_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 cd "$REPO_ROOT"
 
-COMPOSE_FILE="deploy/docker-compose.prod.yml"
+# --env-file .env is required: with -f deploy/... the compose project directory
+# is deploy/, so the repo-root .env is NOT auto-loaded for interpolation
+# (${VITE_API_URL}/${YANDEX_API_KEY}/... would resolve empty otherwise).
+COMPOSE="docker compose --env-file .env -f deploy/docker-compose.prod.yml"
 
 echo "==> sci-tangle deploy @ $(date -u +%FT%TZ)"
 
@@ -35,13 +38,13 @@ fi
 
 # --- build + start --------------------------------------------------------
 echo "==> building images and starting stack"
-docker compose -f "$COMPOSE_FILE" up -d --build --remove-orphans
+$COMPOSE up -d --build --remove-orphans
 
 # --- prune old images -----------------------------------------------------
 docker image prune -f >/dev/null 2>&1 || true
 
 echo "==> current status:"
-docker compose -f "$COMPOSE_FILE" ps
+$COMPOSE ps
 
 echo "==> done. Tail logs with:"
-echo "    docker compose -f $COMPOSE_FILE logs -f"
+echo "    $COMPOSE logs -f"
