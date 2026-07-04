@@ -164,6 +164,7 @@ def _llm_plan(query: str) -> Dict[str, Any] | None:
          {"role": "user", "text": query}],
         model=PLANNER_MODEL, temperature=0.0, max_tokens=400,
         json_schema=_INTENT_SCHEMA, parse_json=True, max_retries=2,
+        model_role="planner",
     )
     if not r:
         return None

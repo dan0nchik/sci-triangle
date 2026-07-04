@@ -25,13 +25,13 @@ export function DashboardPage() {
   return (
     <div className="mx-auto max-w-7xl px-6 py-8 space-y-6">
       <header>
-        <h1 className="text-2xl font-semibold text-white">Дашборд руководителя</h1>
-        <p className="text-slate-400 mt-1">
+        <h1 className="text-2xl font-semibold text-fg">Дашборд руководителя</h1>
+        <p className="text-fg-muted mt-1">
           Покрытие корпуса по доменам, разделам и годам, зоны риска, сводки доменов и активность.
         </p>
       </header>
 
-      {error && <div className="card p-4 border-rose-500/40 bg-rose-500/[0.06] text-sm text-rose-300">{error}</div>}
+      {error && <div className="card p-4 border-rose-500/40 bg-rose-500/[0.06] text-sm text-rose-600">{error}</div>}
 
       {!stats ? (
         <div className="grid gap-4 sm:grid-cols-4">
@@ -45,9 +45,9 @@ export function DashboardPage() {
           <div className="card p-5">
             <div className="flex items-end justify-between mb-2">
               <div>
-                <div className="text-sm text-slate-400">Обработано корпуса</div>
-                <div className="text-2xl font-semibold text-white">
-                  {processed.toLocaleString('ru')} <span className="text-slate-500 text-lg">из {total.toLocaleString('ru')}</span>
+                <div className="text-sm text-fg-muted">Обработано корпуса</div>
+                <div className="text-2xl font-semibold text-fg">
+                  {processed.toLocaleString('ru')} <span className="text-fg-muted text-lg">из {total.toLocaleString('ru')}</span>
                 </div>
               </div>
               <div className="text-3xl font-semibold text-accent">{pct}%</div>
@@ -67,9 +67,63 @@ export function DashboardPage() {
             </button>
           </div>
 
+          {/* КОЗЫРЬ: пустые зоны и противоречия — выпукло и кликабельно (Q&A: явные плюсы) */}
+          <section className="rounded-2xl border border-amber-500/40 bg-gradient-to-br from-amber-500/[0.07] to-rose-500/[0.05] p-5 space-y-4">
+            <div className="flex items-center gap-2">
+              <h2 className="text-lg font-semibold text-fg">Пробелы и противоречия</h2>
+              <span className="chip bg-amber-500/15 text-amber-700">карта «где ещё не копали»</span>
+            </div>
+            <p className="text-sm text-fg-muted -mt-1">
+              Система не прячет неполноту и конфликты источников, а подсвечивает их — это точки роста
+              для R&D и повод для экспертной верификации.
+            </p>
+            <div className="grid gap-4 md:grid-cols-3">
+              {/* Противоречия — крупной плашкой в граф */}
+              <button
+                onClick={() => nav('/graph')}
+                className="text-left rounded-xl border border-rose-500/40 bg-rose-500/[0.06] p-4 hover:border-rose-500/70 transition-colors"
+              >
+                <div className="flex items-center justify-between">
+                  <span className="text-3xl">⚠</span>
+                  <span className="text-3xl font-semibold text-rose-600">{stats.n_contradictions}</span>
+                </div>
+                <div className="mt-2 font-medium text-fg">Противоречий в графе</div>
+                <p className="text-xs text-fg-muted mt-0.5">
+                  Конфликтующие утверждения источников (ребро contradicts) — открыть в графе →
+                </p>
+              </button>
+
+              {/* Пустые зоны — топ-пробелы, кликабельно */}
+              <div className="md:col-span-2 grid gap-2 sm:grid-cols-2 content-start">
+                {stats.top_gaps.slice(0, 4).map((g) => (
+                  <button
+                    key={g.id}
+                    onClick={() => nav('/graph')}
+                    className="text-left rounded-xl border border-ink-600 bg-ink-800 p-3 hover:border-amber-500/60 transition-colors"
+                  >
+                    <div className="flex items-center justify-between mb-1">
+                      <span className="font-medium text-fg text-sm">{g.title}</span>
+                      <span
+                        className="chip text-[10px]"
+                        style={{
+                          color: g.severity === 'high' ? '#E03131' : '#C77700',
+                          backgroundColor: g.severity === 'high' ? '#E0313122' : '#C7770022',
+                        }}
+                      >
+                        {g.severity === 'high' ? 'высокая' : 'средняя'}
+                      </span>
+                    </div>
+                    <p className="text-xs text-fg-muted">{g.description}</p>
+                  </button>
+                ))}
+                {stats.top_gaps.length === 0 && <Empty />}
+              </div>
+            </div>
+          </section>
+
           <div className="grid gap-6 lg:grid-cols-2">
             <div className="card p-5">
-              <h3 className="font-semibold text-white mb-4">Покрытие по доменам</h3>
+              <h3 className="font-semibold text-fg mb-4">Покрытие по доменам</h3>
               {stats.by_domain.length ? (
                 <BarList items={stats.by_domain.map((d) => ({ label: d.label, value: d.n_docs, sub: d.n_assertions ? `${d.n_assertions} утв.` : undefined }))} />
               ) : (
@@ -77,9 +131,9 @@ export function DashboardPage() {
               )}
             </div>
             <div className="card p-5">
-              <h3 className="font-semibold text-white mb-4">Покрытие по разделам</h3>
+              <h3 className="font-semibold text-fg mb-4">Покрытие по разделам</h3>
               {stats.by_section.length ? (
-                <BarList items={stats.by_section.map((d) => ({ label: d.label, value: d.n_docs, sub: d.n_assertions ? `${d.n_assertions} утв.` : undefined }))} color="#81c784" />
+                <BarList items={stats.by_section.map((d) => ({ label: d.label, value: d.n_docs, sub: d.n_assertions ? `${d.n_assertions} утв.` : undefined }))} color="#2E8B72" />
               ) : (
                 <Empty />
               )}
@@ -89,12 +143,12 @@ export function DashboardPage() {
           {/* Распределение типов узлов */}
           {stats.node_types && Object.keys(stats.node_types).length > 0 && (
             <div className="card p-5">
-              <h3 className="font-semibold text-white mb-4">Распределение типов узлов</h3>
+              <h3 className="font-semibold text-fg mb-4">Распределение типов узлов</h3>
               <BarList
                 items={Object.entries(stats.node_types)
                   .sort((a, b) => b[1] - a[1])
                   .map(([k, v]) => ({ label: k, value: v }))}
-                color="#ba68c8"
+                color="#7A5AC2"
               />
             </div>
           )}
@@ -102,7 +156,7 @@ export function DashboardPage() {
           {/* Годы */}
           {stats.by_year.length > 0 && (
             <div className="card p-5">
-              <h3 className="font-semibold text-white mb-4">Динамика документов по годам</h3>
+              <h3 className="font-semibold text-fg mb-4">Динамика документов по годам</h3>
               <YearChart data={stats.by_year} />
             </div>
           )}
@@ -110,46 +164,16 @@ export function DashboardPage() {
           {/* Сводки доменов (GraphRAG) */}
           {stats.domain_summaries && Object.keys(stats.domain_summaries).length > 0 && (
             <div className="card p-5">
-              <h3 className="font-semibold text-white mb-3">Сводки по доменам</h3>
+              <h3 className="font-semibold text-fg mb-3">Сводки по доменам</h3>
               <div className="grid gap-3 sm:grid-cols-2">
                 {Object.values(stats.domain_summaries).map((d) => (
                   <div key={d.domain} className="rounded-lg border border-ink-700 bg-ink-850 p-3">
                     <div className="flex items-center justify-between mb-1">
-                      <span className="font-medium text-slate-100 capitalize">{d.domain}</span>
-                      <span className="chip bg-ink-700 text-slate-400">{d.n_processes} проц.</span>
+                      <span className="font-medium text-fg capitalize">{d.domain}</span>
+                      <span className="chip bg-ink-700 text-fg-muted">{d.n_processes} проц.</span>
                     </div>
-                    <p className="text-xs text-slate-400 leading-relaxed">{d.summary}</p>
+                    <p className="text-xs text-fg-muted leading-relaxed">{d.summary}</p>
                   </div>
-                ))}
-              </div>
-            </div>
-          )}
-
-          {/* Зоны риска */}
-          {stats.top_gaps.length > 0 && (
-            <div className="card p-5">
-              <h3 className="font-semibold text-white mb-3">Зоны риска — приоритетные пробелы</h3>
-              <div className="grid gap-3 sm:grid-cols-3">
-                {stats.top_gaps.map((g) => (
-                  <button
-                    key={g.id}
-                    onClick={() => nav('/graph')}
-                    className="text-left rounded-lg border border-ink-700 bg-ink-850 p-3 hover:border-accent-dim"
-                  >
-                    <div className="flex items-center justify-between mb-1">
-                      <span className="font-medium text-slate-100 text-sm">{g.title}</span>
-                      <span
-                        className="chip"
-                        style={{
-                          color: g.severity === 'high' ? '#f87171' : '#fbbf24',
-                          backgroundColor: g.severity === 'high' ? '#f8717122' : '#fbbf2422',
-                        }}
-                      >
-                        {g.severity === 'high' ? 'высокая' : 'средняя'}
-                      </span>
-                    </div>
-                    <p className="text-xs text-slate-400">{g.description}</p>
-                  </button>
                 ))}
               </div>
             </div>
@@ -158,14 +182,14 @@ export function DashboardPage() {
           {/* Активность (аудит) */}
           {audit.length > 0 && (
             <div className="card p-5">
-              <h3 className="font-semibold text-white mb-3">Активность (аудит)</h3>
+              <h3 className="font-semibold text-fg mb-3">Активность (аудит)</h3>
               <div className="space-y-1.5">
                 {audit.slice(0, 8).map((a, i) => (
-                  <div key={i} className="flex items-center gap-3 text-xs border-b border-ink-800 last:border-0 py-1.5">
-                    <span className="chip bg-ink-700 text-slate-400 w-24 justify-center">{a.role}</span>
+                  <div key={i} className="flex items-center gap-3 text-xs border-b border-ink-700 last:border-0 py-1.5">
+                    <span className="chip bg-ink-700 text-fg-muted w-24 justify-center">{a.role}</span>
                     <span className="chip bg-accent-dim/25 text-accent-soft w-20 justify-center">{a.action}</span>
-                    <span className="text-slate-300 truncate flex-1">{a.detail}</span>
-                    <span className="text-slate-600 whitespace-nowrap">{new Date(a.ts).toLocaleTimeString('ru')}</span>
+                    <span className="text-fg-body truncate flex-1">{a.detail}</span>
+                    <span className="text-fg-faint whitespace-nowrap">{new Date(a.ts).toLocaleTimeString('ru')}</span>
                   </div>
                 ))}
               </div>
@@ -178,7 +202,7 @@ export function DashboardPage() {
 }
 
 function Empty() {
-  return <p className="text-sm text-slate-500">Нет данных.</p>
+  return <p className="text-sm text-fg-muted">Нет данных.</p>
 }
 
 function Kpi({ label, value, icon, accent }: { label: string; value: string; icon: string; accent?: 'rose' }) {
@@ -186,16 +210,16 @@ function Kpi({ label, value, icon, accent }: { label: string; value: string; ico
     <div className="card p-5 h-full">
       <div className="flex items-center justify-between">
         <span className="text-2xl">{icon}</span>
-        <span className={`text-2xl font-semibold ${accent === 'rose' ? 'text-rose-300' : 'text-white'}`}>{value}</span>
+        <span className={`text-2xl font-semibold ${accent === 'rose' ? 'text-rose-600' : 'text-fg'}`}>{value}</span>
       </div>
-      <div className="text-sm text-slate-400 mt-2">{label}</div>
+      <div className="text-sm text-fg-muted mt-2">{label}</div>
     </div>
   )
 }
 
 function BarList({
   items,
-  color = '#3ea6ff',
+  color = '#0077C8',
 }: {
   items: { label: string; value: number; sub?: string }[]
   color?: string
@@ -206,8 +230,8 @@ function BarList({
       {items.map((it) => (
         <div key={it.label}>
           <div className="flex justify-between text-sm mb-1">
-            <span className="text-slate-300 capitalize">{it.label}</span>
-            <span className="text-slate-500">
+            <span className="text-fg-body capitalize">{it.label}</span>
+            <span className="text-fg-muted">
               {it.value}
               {it.sub ? ` · ${it.sub}` : ''}
             </span>
@@ -227,12 +251,12 @@ function YearChart({ data }: { data: { year: number; n_docs: number }[] }) {
     <div className="flex items-end gap-3 h-40">
       {data.map((d) => (
         <div key={d.year} className="flex-1 flex flex-col items-center gap-1.5">
-          <div className="text-[11px] text-slate-500">{d.n_docs}</div>
+          <div className="text-[11px] text-fg-muted">{d.n_docs}</div>
           <div
             className="w-full rounded-t bg-gradient-to-t from-accent-dim to-accent"
             style={{ height: `${(d.n_docs / max) * 100}%` }}
           />
-          <div className="text-[11px] text-slate-500">{d.year}</div>
+          <div className="text-[11px] text-fg-muted">{d.year}</div>
         </div>
       ))}
     </div>

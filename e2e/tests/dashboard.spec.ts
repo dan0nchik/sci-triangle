@@ -19,7 +19,8 @@ test.describe('Дашборд руководителя', () => {
     test.skip(info.project.name === 'mock', 'счётчик корпуса из живого /api/stats')
     await page.goto('/dashboard')
     // «Обработано корпуса N из M» — N (n_documents) должно быть > 0
-    const processed = page.locator('div.text-2xl.font-semibold.text-white').first()
+    // (светлая тема Норникеля: текст .text-fg, не .text-white)
+    const processed = page.locator('div.text-2xl.font-semibold.text-fg').first()
     await expect(processed).toBeVisible({ timeout: 30_000 })
     const txt = (await processed.textContent()) ?? ''
     const n = Number(txt.replace(/[^\d]/g, '').slice(0, 6))

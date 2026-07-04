@@ -55,7 +55,7 @@ def build_summaries(store_neo4j: bool = True) -> Dict[str, Any]:
             r = llm.complete([{"role": "system", "text": _SYS},
                               {"role": "user", "text": payload}],
                              model="pro", temperature=0.2, max_tokens=350,
-                             max_retries=2)
+                             max_retries=2, model_role="summaries")
             if r and r.get("text", "").strip():
                 summary = r["text"].strip()
         if not summary:  # deterministic fallback

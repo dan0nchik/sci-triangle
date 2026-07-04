@@ -35,19 +35,19 @@ export function NodeCard({
             {NODE_LABELS[node.type]}
           </span>
           {isAssertion && node.review_status && (
-            <span className="chip bg-ink-700 text-slate-400">{node.review_status}</span>
+            <span className="chip bg-ink-700 text-fg-muted">{node.review_status}</span>
           )}
         </div>
-        <button onClick={onClose} className="text-slate-500 hover:text-white text-lg leading-none">×</button>
+        <button onClick={onClose} className="text-fg-muted hover:text-fg text-lg leading-none">×</button>
       </div>
 
       <div>
-        <div className="font-semibold text-white leading-snug">{node.name}</div>
-        {node.name_en && <div className="text-xs text-slate-500">{node.name_en}</div>}
+        <div className="font-semibold text-fg leading-snug">{node.name}</div>
+        {node.name_en && <div className="text-xs text-fg-muted">{node.name_en}</div>}
       </div>
 
       {node.statement && (
-        <p className="text-sm text-slate-300 leading-relaxed border-l-2 border-node-assertion/50 pl-2">
+        <p className="text-sm text-fg-body leading-relaxed border-l-2 border-node-assertion/50 pl-2">
           {node.statement}
         </p>
       )}
@@ -55,17 +55,17 @@ export function NodeCard({
       {node.aliases && node.aliases.length > 0 && (
         <div className="flex flex-wrap gap-1">
           {node.aliases.map((a) => (
-            <span key={a} className="chip bg-ink-700 text-slate-400">{a}</span>
+            <span key={a} className="chip bg-ink-700 text-fg-muted">{a}</span>
           ))}
         </div>
       )}
 
       {Object.keys(props).length > 0 && (
-        <div className="text-xs font-mono text-slate-400 space-y-0.5 bg-ink-850 rounded-lg p-2.5">
+        <div className="text-xs font-mono text-fg-muted space-y-0.5 bg-ink-850 rounded-lg p-2.5">
           {Object.entries(props).map(([k, v]) => (
             <div key={k} className="flex gap-2">
-              <span className="text-slate-500">{k}:</span>
-              <span className="text-slate-300">{String(v)}</span>
+              <span className="text-fg-muted">{k}:</span>
+              <span className="text-fg-body">{String(v)}</span>
             </div>
           ))}
         </div>
@@ -74,7 +74,7 @@ export function NodeCard({
       {/* Ссылки на документы-источники (D4) */}
       {docIds.length > 0 && onOpenDoc && (
         <div className="space-y-1">
-          <div className="text-[11px] uppercase tracking-wide text-slate-500">Документы</div>
+          <div className="text-[11px] uppercase tracking-wide text-fg-muted">Документы</div>
           <div className="flex flex-wrap gap-1">
             {docIds.map((d) => (
               <button
@@ -89,7 +89,7 @@ export function NodeCard({
         </div>
       )}
 
-      <div className="flex items-center justify-between text-xs text-slate-500">
+      <div className="flex items-center justify-between text-xs text-fg-muted">
         <span className="font-mono">{node.id}</span>
         {node.confidence != null && <span>conf {(node.confidence * 100).toFixed(0)}%</span>}
       </div>
@@ -97,13 +97,13 @@ export function NodeCard({
       {/* Режим правки (D10): review Assertion */}
       {editable && isAssertion && onReview && (
         <div className="border-t border-ink-700 pt-3 space-y-2">
-          <div className="text-[11px] uppercase tracking-wide text-cyan-300">Экспертная правка</div>
+          <div className="text-[11px] uppercase tracking-wide text-cyan-700">Экспертная правка</div>
           <div className="flex gap-1.5">
-            <button onClick={() => onReview('confirmed')} className="chip bg-emerald-500/15 text-emerald-300 flex-1 justify-center">✓ Подтвердить</button>
-            <button onClick={() => onReview('disputed')} className="chip bg-amber-500/15 text-amber-300 flex-1 justify-center">⚑ Оспорить</button>
-            <button onClick={() => onReview('rejected')} className="chip bg-rose-500/15 text-rose-300 flex-1 justify-center">✕ Отклонить</button>
+            <button onClick={() => onReview('confirmed')} className="chip bg-emerald-500/15 text-emerald-600 flex-1 justify-center">✓ Подтвердить</button>
+            <button onClick={() => onReview('disputed')} className="chip bg-amber-500/15 text-amber-600 flex-1 justify-center">⚑ Оспорить</button>
+            <button onClick={() => onReview('rejected')} className="chip bg-rose-500/15 text-rose-600 flex-1 justify-center">✕ Отклонить</button>
           </div>
-          {reviewMsg && <p className="text-[11px] text-slate-400">{reviewMsg}</p>}
+          {reviewMsg && <p className="text-[11px] text-fg-muted">{reviewMsg}</p>}
         </div>
       )}
 

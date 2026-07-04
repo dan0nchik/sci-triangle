@@ -68,6 +68,57 @@ cd backend
 
 OpenAPI-доки: http://localhost:8000/docs. Health: `GET /api/health`.
 
+## Добавление новых документов (upload-pipeline)
+
+Канонический pipeline жюри «загрузка → извлечение → фрагмент графа → объединение
+с общим графом → поиск со ссылками» доступен **через API одним файлом** — это
+демонстрирует масштабируемость на новых данных (работа вне выданного массива).
+
+Реализация: `backend/app/upload.py` (+ тонкие обёртки
+`pipeline.extract.runner.extract_payloads` / `build_fragment`). Код пайплайна НЕ
+дублируется — переиспользуются `pipeline.ingest` (текст+чанки), `es_indexer`
+(ES-индексация), `pipeline.extract` (LLM-экстракция), `loader` (MERGE в Neo4j).
+
+### Эндпоинты
+
+```bash
+# 1) загрузить файл (pdf/docx/docm/doc/pptx/xlsx/xls) — multipart, поле file
+curl -F "file=@mydoc.pdf" http://localhost:8000/api/upload
+#   -> {"job_id":"job_…","doc_id":"up_…","cached":false,"stage":"queued"}
+
+# 2) поллить стадии до done/failed
+curl http://localhost:8000/api/upload/job_XXXX
+#   stage: extracting_text → chunking → embedding → indexing
+#          → extracting_knowledge → merging_graph → done
+```
+
+Полный контракт (форматы, стадии, `graph_preview`) — **`docs/CONTRACT_UPLOAD.md`**
+(по нему фронтенд делает upload-модал со степпером и мини-графом).
+
+### Свойства
+
+- **Отдельная область данных.** Чанки пишутся в `corpus/uploads/{doc_id}.*`,
+  НИКОГДА в общий `corpus/chunks.jsonl`. Задачи/стадии — в `backend/uploads.sqlite`.
+- **Сразу ищется.** После стадии `indexing` документ находится через `POST /api/search`
+  (ES full-text), не дожидаясь LLM.
+- **Дедуп по sha256.** Повторная загрузка тех же байтов → тот же `doc_id` и стадии
+  из кэша (`cached: true`).
+- **Идемпотентный MERGE.** Фрагмент вливается в общий граф через `loader` (MERGE по
+  `id`). Провенанс пред-существующих общих узлов (напр. `mat:nickel`,
+  `proc:electrowinning`) **не затирается** — `source_docs`/`aliases`/`props`
+  объединяются, `confidence` берётся максимум (см. `upload._preserve_existing`).
+- **Деградация без LLM/эмбеддингов.** Если ключ LLM мёртв — стадия
+  `extracting_knowledge` помечается `deferred`, документ всё равно попадает в поиск
+  и в граф как `Publication`-узел. Стадия `embedding` best-effort (`skipped` при
+  недоступном бэкенде — full-text работает без векторов).
+
+### Бюджет LLM-экстракции
+
+- Роль `extraction` резолвится мультипровайдерным шлюзом (`shared/llm_gateway.py`).
+  Модель/провайдер — через env (`LLM_MODEL_EXTRACTION=openai:gpt-4o-mini` и т.п.).
+- `UPLOAD_EXTRACT_MAX` (env, по умолчанию `40`) — макс. число чанков, отправляемых
+  в LLM на документ (бюджет-гейт для дорогих ключей).
+
 ## 5. Примеры запросов
 
 ```bash
@@ -99,11 +150,71 @@ curl -s -X POST localhost:8000/api/export -d '{"search_id":"<id>","format":"md"}
 curl -s localhost:8000/api/audit/log
 ```
 
+## LLM-провайдеры: как подключить любую модель
+
+Весь completion (planner / synthesis / summaries / extraction) идёт через единый
+мультипровайдерный шлюз `shared/llm_gateway.py`. Подключить ЛЮБУЮ модель можно СМЕНОЙ
+КОНФИГА (.env), без правки кода. Эмбеддинги в шлюз НЕ входят (остаются на Yandex).
+
+Бэкенды:
+- **yandex** — обёртка над `shared/yandex_client.py` (не переписан; делегирование:
+  sync для `complete`, `completionAsync` для батч-экстракции). Дефолт — поведение
+  байт-в-байт как раньше.
+- **openai_compatible** — ЕДИНЫЙ бэкенд для OpenRouter / OpenAI / vLLM / Ollama /
+  LM Studio (`base_url` + `api_key` + модель). Structured output: нативный
+  `response_format: json_schema` с автоматическим фолбэком на `json_object` + схема в
+  промпте + валидация + 1 ретрай (для моделей без нативной поддержки).
+- **mock** — детерминированные ответы по схеме (тесты и dev без ключей).
+
+### Переменные окружения
+
+| Переменная | Назначение |
+|---|---|
+| `LLM_PROVIDER` | Глобальный провайдер по умолчанию (`yandex`\|`mock`\|`openrouter`\|`openai`\|`vllm`\|`ollama`\|`lmstudio`\|…). Дефолт `yandex` |
+| `LLM_MODEL_PLANNER` | Пер-роль оверрайд `"provider:model_id"` (напр. `openrouter:deepseek/deepseek-chat-v3`) |
+| `LLM_MODEL_SYNTHESIS` | То же для синтеза ответов |
+| `LLM_MODEL_EXTRACTION` | То же для LLM-экстракции знаний (pipeline) |
+| `LLM_MODEL_SUMMARIES` | То же для доменных сводок |
+| `LLM_FALLBACK[_<ROLE>]` | Опц. фолбэк-цепочка `"provider:model_id"`, если primary упал/недоступен |
+| `<PROVIDER>_BASE_URL` | База openai-совместимого API (у `openrouter`/`openai`/… есть дефолты) |
+| `<PROVIDER>_API_KEY` | Ключ провайдера |
+| `<PROVIDER>_MODEL` | Дефолт-модель провайдера (если роль без явной модели) |
+| `<PROVIDER>_JSON_SCHEMA` | `auto`(деф.)\|`native`\|`json_object`\|`none` — режим structured output |
+| `<PROVIDER>_MAX_CONCURRENCY` | Лимит конкурентности (деф. 4) |
+| `<PROVIDER>_TIMEOUT` | Таймаут запроса, с (деф. 90) |
+| `<PROVIDER>_REQUIRE_KEY` | `0` — ключ не нужен (локальные ollama/lmstudio/vllm) |
+
+Резолюция роли: если задан `LLM_MODEL_<ROLE>` — используется он; иначе `LLM_PROVIDER`
++ дефолт-модель роли. Провайдеры можно **смешивать в одном процессе** (напр. планер на
+OpenAI, синтез на Yandex). При `LLM_PROVIDER=yandex` без оверрайдов всё работает как
+раньше.
+
+### Подключить OpenRouter за 30 секунд (когда придёт ключ)
+
+```bash
+# в .env:
+LLM_PROVIDER=openrouter
+OPENROUTER_API_KEY=sk-or-...            # base_url уже с дефолтом
+OPENROUTER_MODEL=deepseek/deepseek-chat-v3
+# (опц.) точечно: LLM_MODEL_SYNTHESIS=openrouter:anthropic/claude-3.5-sonnet
+```
+Перезапустить uvicorn / раннер — всё. structured output подхватится автоматически
+(`OPENROUTER_JSON_SCHEMA=auto` пробует native, при 400 падает на json_object-фолбэк).
+
+Наблюдаемость: `GET /api/health → llm_usage` содержит `provider` и `by_provider`
+(разбивка токенов по провайдерам), `fallbacks`.
+
 ## 6. Тесты
 
 ```bash
 cd backend
 ../.venv-c/bin/python -m pytest tests -v
+```
+
+Юнит-тесты шлюза (без живых ключей, mock-провайдер): structured output, json_object-
+фолбэк, пер-роль резолюция, деградация 4xx/5xx → фолбэк-цепочка, учёт токенов:
+```bash
+../.venv-c/bin/python -m pytest shared/tests -v      # из корня репо; 13 passed
 ```
 
 Интеграционные тесты (пропускаются, если Neo4j недоступен): загрузка fixture,
@@ -139,8 +250,65 @@ NL-запрос → структурный интент → filter-first retriev
 | `app/concepts_registry.py` | загрузка `shared/concepts.yaml`, маппинг терминов RU/EN → концепты и surface-forms (матчинг по **поверхностной форме**, т.к. fixture использует свои concept_id) |
 | `app/planner.py` (C7) | NL → интент `{concepts, conditions, numbers, geography, year_from/to, query_type, compare_axes, language}`. YandexGPT (jsonSchema) + регекс-фоллбэк. `numbers` всегда детерминированы (регекс). sqlite-кэш планов |
 | `app/retrieval.py` (C8) | 3 ветки параллельно: (A) ES bool+range по чанкам, (B) Neo4j vector по сущностям (реальный Yandex-эмбеддинг, кросс-язычно), (C) Cypher-anchor по концептам. RRF (k=60) + **скор-гейтинг** |
-| `app/synthesis.py` (C10) | evidence-packet, YandexGPT: «отвечай ТОЛЬКО по доказательствам, [n], числа только из цитат». Структура по query_type (review/compare-таблица/gap). Пост-проверка чисел (`pipeline validate_numbers`, read-only) + 1 ретрай + вычистка негрунтованных предложений. Fallback — шаблон |
+| `app/synthesis.py` (C10) | evidence-packet, LLM (мультипровайдер): «отвечай ТОЛЬКО по доказательствам, [n], числа только из цитат». Для `review`/`compare`/`aggregate` — **мини-обзор уровня экспертов** (см. ниже). Пост-проверка чисел (`pipeline validate_numbers`, read-only) + 1 ретрай + вычистка негрунтованных предложений. Fallback — шаблон |
 | `summaries.py` (C11) | доменные сводки (GraphRAG) → `domain_summaries.json` + `:DomainSummary` в Neo4j; отдаются в `/api/stats`, используются как контекст для review-запросов |
+
+### Шаблон эталонного ответа (мини-обзор «как у экспертов Гипроникеля»)
+
+Критерий №1 жюри — **содержательность и корректность ответа**; эталон — ручные обзоры
+из папки `data/…/Обзоры/*.docx` (ОИП-NN-YYYY). Разобрано 4 обзора («Методы очистки
+шахтных вод», «Обзор технических решений в области электролитического производства
+никеля и меди», «Зарубежный и отечественный опыт флотации шлаков…», «Наилучшие доступные
+технологии …»). Общая структура эталона:
+
+1. **Титул + метаданные** (утверждение, департамент, код ОИП-NN-YYYY, исполнители) — в
+   ответе не воспроизводим, аналог — заголовок темы.
+2. **Оглавление, сгруппированное по МЕТОДАМ/ТЕХНОЛОГИЯМ** (иерархия `1 → 1.1 → 1.1.1`),
+   а не по документам: напр. «Осаждение/нейтрализация → Мембранные процессы → Обратный
+   осмос / Нанофильтрация»; либо по металлу/среде («Никель: хлоридный / сульфатный
+   электролит → Медь»).
+3. **Введение** — постановка задачи, охват.
+4. **Тело — по группам методов.** Каждый метод: суть → **условия применимости** (тип
+   сырья/воды, диапазоны параметров, ограничения) → **числа** (концентрации, температуры,
+   расходы реагентов г/т, извлечения %, производительность м³/час, электродные
+   потенциалы В). Числа всегда конкретны и сопровождаются контекстом.
+5. **Сравнительные таблицы** — «завод/установка × параметры» (Saganoseki/Toyo/Pasar;
+   Niihama vs Nikkelverk), «реагент × расход г/т», «параметр × вариант A × вариант B».
+6. **Отечественная vs зарубежная практика** — явное сопоставление (многие обзоры так и
+   озаглавлены: «Зарубежный и отечественный опыт …»).
+7. **Выводы** — что применимо и при каких условиях; ограничения/риски из источников.
+
+Отсюда — целевая структура ответа синтеза для `query_type=review` (в `synthesis._STRUCT`):
+
+```
+### <заголовок темы>
+**Сводка.** 2–3 предложения с [n].
+**Методы и решения.** группами: суть [n] → УСЛОВИЯ ПРИМЕНИМОСТИ → КЛЮЧЕВЫЕ ЧИСЛА [n].
+**Сравнение.** таблица Markdown (метод | параметры с числами | условия), пусто → «—».
+**Отечественная и зарубежная практика.** только если есть обе стороны [n].
+**Выводы и ограничения.** 2–4 пункта [n].
+**Зоны неопределённости.** пробелы и противоречия (не скрываем).
+```
+
+Жёсткие правила синтеза не изменены: только из доказательств; каждое утверждение — с
+`[n]` (модель обязана подставлять реальный номер, не буквальное «[n]»); числа —
+исключительно из цитат, с пост-валидацией `validate_numbers`. Бюджет вывода — по классу
+(`synthesis._MAXTOK`: review 900, compare/aggregate 750, lookup 550 токенов).
+
+Мультипровайдер: синтез идёт через `shared/llm_gateway.py` (роль `synthesis`). Для теста
+качества без Yandex: `LLM_MODEL_SYNTHESIS=openai:gpt-4o-mini` (inline env, не в `.env`).
+
+### Объяснимость: `retrieval_trace` (контракт `docs/CONTRACT_TRACE.md`)
+
+`POST /api/search` возвращает поле `retrieval_trace` — «как система нашла ответ»: какие
+ветки ретривала сработали (`lexical/semantic/graph/doc-name` + `n_passed_gate` +
+`top_signals`), какие концепты распознаны (`concepts_matched`), прошёл ли honesty-гейт
+(`gate.passed/reason`), сколько кандидатов рассмотрено (`docs_considered`). Собирается в
+`search.py::_build_retrieval_trace` из того, что уже возвращает `retrieve()` (пер-цитатные
+сигналы + агрегатные счётчики гейта) — **`retrieval.py` не изменён** (зона эмбеддинг-агента).
+Ограничение: пер-веточные счётчики кандидатов ДО гейта ядром не отдаются → `branches[].
+n_candidates=null`, статистика веток считается по выжившим цитатам (честно задокументировано
+в контракте). Фронт (агент UX-Explainability) строит по этому контракту панель объяснимости.
 
 **Скор-гейтинг (главный рычаг honesty).** После RRF каждый чанк оценивается по трём
 сигналам: `lex` (найден в ES), `sem` (cosine запрос↔чанк ≥ `SEM_THRESHOLD=0.52`),
@@ -170,6 +338,17 @@ NL-запрос → структурный интент → filter-first retriev
 | Number accuracy / recall | 100% / 1.0 | 100% / 1.0 |
 | Citation-rate | 97.1% | 85.7% (гейт честно не цитирует темы, отсутствующие в fixture) |
 | Latency p50 / p95 / max | 1.1 / 1.2 / 1.3 с | 1.9 / **3.9** / 5.5 с |
+
+**Проверка answer-quality upgrade (реальный корпус, fallback/template режим).** Новый
+синтез-промпт, `retrieval_trace` и правка `models.py` не ломают шаблонный fallback-путь:
+харнесс на новом коде в template-режиме — 45 прогонов, 0 ошибок, citation-rate 100%,
+honesty 85.7% (= прод-baseline), p95 ~2.5 с. Ретривал байт-в-байт совпадает со старым
+кодом (одинаковые doc_id в цитатах), а `retrieval_trace` присутствует только на новом
+коде. Колебание hit-rate/number-accuracy (78–81% / 0–11%) — существующая недетерминированность
+ретривала и текущее состояние эмбеддингов (зона R-агента), не связано с этими правками.
+Тест качества синтеза — `LLM_MODEL_SYNTHESIS=openai:gpt-4o-mini` на 4 golden-запросах:
+новый ответ даёт структуру мини-обзора (сводка → методы с условиями и числами → таблица →
+RU/зарубеж → выводы → зоны неопределённости), старый — плоский список; расход ~12k токенов.
 
 ## C-platform — сервисные фичи (C13–C18)
 
@@ -446,3 +625,105 @@ cd backend && ../.venv-b/bin/python precompute_chunk_embeddings.py \
   Yandex-эмбеддинг + кэш).
 - Fixture-документы имеют doc_id `d0009xx` (намеренно вне диапазона реального корпуса
   `corpus/documents.jsonl`, чтобы не было коллизий namespace).
+
+## Эмбеддинг-пространства — как подключить любую модель и пересчитать корпус
+
+Мульти-эмбеддинг поддержка (agent Embeddings-Gateway): подключение любой эмбеддинг-модели
+сменой конфига + лёгкий версионируемый пересчёт всего корпуса, включая **локальную модель
+на сервере заказчика**. Ничего не завязано на одну модель.
+
+### Понятие «ПРОСТРАНСТВА» (Space)
+
+`shared/embeddings_gateway.py::SPACES` — реестр пространств. Пространство =
+`{space_id, provider, model, dim, prefix_scheme, normalized, query_kind}`:
+
+| поле | смысл |
+|---|---|
+| `space_id` | каталог эмбеддингов `graph/embeddings/{space_id}/` |
+| `provider` | бэкенд: `yandex` / `local_http` / `openai_compatible` / `hash` |
+| `model` | имя модели у провайдера |
+| `dim` | размерность (256 Yandex, 1024 Qwen) |
+| `prefix_scheme` | `none` / `e5` (`query:`/`passage:`) / `qwen` (Instruct-инструкция на query) |
+| `normalized` | гарантируется ли L2-норма провайдером (мы всё равно нормируем при загрузке) |
+| `query_kind` | каким `kind` эмбеддить ЗАПРОС: Yandex `doc` (асимметрия doc/query, находка B), Qwen/e5 `query` |
+
+Готовые пространства:
+- **`yandex-256`** — исходное Yandex `text-search-doc` (256-dim). Дефолт (обратная совместимость).
+- **`qwen3-0.6b`** — локальная **`Qwen/Qwen3-Embedding-0.6B`** (Apache-2.0, **32K контекст**,
+  1024-dim, Matryoshka 32..1024). Выбрана вместо `multilingual-e5-large`, у которого лимит
+  **512 токенов** — а наши чанки в среднем **~933 токена** (p90 1092), e5 молча резал бы
+  половину чанка. Qwen: query-side английская инструкция (даже для RU-запросов), doc-side
+  сырой текст, L2-норма.
+- **`hash-256`** — dev-фолбэк (детерминированный хеш). `src="hash"` — **никогда** не мешать
+  с реальными векторами в одном файле.
+
+### Единый интерфейс
+
+```python
+from shared import embeddings_gateway as gw
+gw.embed_texts(texts, kind="doc"|"query", space=None)   # space=None -> env EMBEDDING_SPACE
+gw.embed_query(text, space=None)                        # kind = query_kind пространства
+```
+
+**Кэш.** Расширенная схема — таблица `emb_gw(space_id, h, kind, dim, vec)` в том же
+`shared/emb_cache.sqlite`. Ключ `(space_id, sha256(kind\0text))`. Существующая таблица
+`emb` (Yandex) НЕ трогается — Yandex-кэш сохранён 1:1. Для `provider="yandex"` кэширует
+сам `yandex_client` (двойного кэша нет).
+
+### Локальный эмбеддинг-сервис (GPU/CPU сервер заказчика)
+
+`deploy/embed_service/` — FastAPI + sentence-transformers, порт **1171**:
+- `POST /embed {texts, kind}` → `{embeddings, dim, took_ms}` (батчинг, префиксы по kind,
+  L2-норма). Qwen: `kind="query"` → `Instruct: <domain instruction>\nQuery: ...`, `kind="doc"` → сырой текст.
+- `GET /health` → `{status, model, dim, device, vram_used_mb, ...}`.
+- Модель-агностичен: `EMBED_MODEL=<любая ST-модель>` + `EMBED_PREFIX=qwen|e5|none`.
+- Развёрнут на `ithse.ru` (RTX 4070): venv + `run.sh` (nohup) + `@reboot` cron (паттерн OCR).
+- **Память GPU-заказчика делится** с ~9GB чужим процессом (свободно <2.6GB), поэтому сервис
+  сам проверяет свободный VRAM (`EMBED_MIN_FREE_MB`, дефолт 3500) и, если места нет, грузится
+  на **CPU** — БЕЗ утечки VRAM (не аллоцирует на GPU впустую). Как только GPU освобождается —
+  рестарт поднимает модель на CUDA автоматически. На MPS/локали поддержан fp16.
+
+### Версионируемый прекомпьют
+
+```bash
+# любое пространство одним флагом --space; выход в graph/embeddings/{space}/
+# (+ meta.json {space, model, dim, created, n}); инкрементально + резюмируемо.
+NO_PROXY=localhost,127.0.0.1 EMBED_LOCAL_URL=http://127.0.0.1:1171 \
+  ../.venv-emb/bin/python precompute_chunk_embeddings.py --space qwen3-0.6b --trunc 6000 --batch 32
+```
+
+Старое Yandex-пространство мигрировано в `graph/embeddings/yandex-256/` (+ `meta.json`).
+`chunk_vectors.py` ищет `graph/embeddings/{space}/`, а для `yandex-256` падает назад на
+**плоский путь** `graph/embeddings/chunk_embeddings.npy` (обратная совместимость с прод).
+
+### Переключение активного пространства (backend)
+
+`EMBEDDING_SPACE` (env, дефолт `yandex-256`):
+- `chunk_vectors.py` грузит матрицу активного пространства (dim выводится из матрицы);
+- `llm.embed_query_doc` эмбеддит ЗАПРОС в активном пространстве через шлюз (`query_kind`),
+  `llm.embed_chunk_doc` — кандидатов на лету в том же пространстве (косинусы сопоставимы);
+- пороги sem-гейта — пер-пространство в `retrieval.py::_SPACE_GATES` (косинус-распределения
+  РАЗНЫЕ!). Qwen на однородном металлургическом корпусе даёт **сжатые** косинусы
+  (on-topic ~0.42–0.54 vs same-domain ~0.32), поэтому пороги ниже Yandex: `0.42/0.55/0.38`.
+  Переопределяются через env `SEM_THRESHOLD/SEM_STRONG/SEM_CONCEPT`.
+
+### Рецепт: подключить НОВУЮ модель за 3 шага
+
+1. Добавить запись в `SPACES` (`shared/embeddings_gateway.py`), напр. `bge-m3`:
+   `Space("bge-m3", provider="local_http", model="BAAI/bge-m3", dim=1024, prefix_scheme="none", query_kind="query")`.
+2. Поднять её в сервисе: `EMBED_MODEL=BAAI/bge-m3 EMBED_PREFIX=none ~/sci-embed/run.sh`.
+3. Пересчитать: `precompute_chunk_embeddings.py --space bge-m3`, откалибровать пороги в
+   `_SPACE_GATES`, включить `EMBEDDING_SPACE=bge-m3`. Всё остальное — без изменений кода.
+
+### Query-эмбеддинг на проде (решение)
+
+Порт 1171 на `ithse.ru` **наружу не открыт**, прод (`158.255.4.151`) до него не достаёт, а
+сам GPU-сервис под контеншеном CPU-bound. Решение: **локальный CPU-инференс Qwen на проде**
+(sidecar `embed`-сервис в compose-сети прод-стека, `EMBED_LOCAL_URL=http://embed:1171`) —
+без внешней зависимости и сетевой хрупкости. Один короткий запрос на CPU ~1–2 c, в бюджете
+p95≤5 c (доминирует LLM-синтез). Пересчёт корпуса делается офлайн (MPS-ноутбук / GPU-окно),
+на прод синкается только готовый `graph/embeddings/qwen3-0.6b/`.
+
+> **Roadmap** (не сделано, исследование рекомендует): реранкер `Qwen/Qwen3-Reranker-0.6B`
+> поверх RRF; второе гибридное пространство `bge-m3` (dense+sparse) — оба влезают в GPU и
+> добавляются как ещё одно `Space` без переделки архитектуры.

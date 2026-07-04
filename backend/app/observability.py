@@ -15,6 +15,9 @@ from starlette.middleware.base import BaseHTTPMiddleware
 BACKEND = Path(__file__).resolve().parent.parent
 if str(BACKEND) not in sys.path:
     sys.path.insert(0, str(BACKEND))
+_SHARED = BACKEND.parent / "shared"
+if str(_SHARED) not in sys.path:
+    sys.path.insert(0, str(_SHARED))
 
 
 def configure_logging() -> None:
@@ -65,19 +68,31 @@ class RequestContextMiddleware(BaseHTTPMiddleware):
 
 
 def llm_usage() -> Dict[str, Any]:
+    """Cross-provider token accounting (gateway USAGE = superset of the yandex counters,
+    plus per-provider breakdown and the active provider). Falls back to yandex-only."""
     try:
-        from shared.yandex_client import USAGE
+        from llm_gateway import USAGE
         return USAGE.snapshot()
     except Exception:
-        return {}
+        try:
+            from shared.yandex_client import USAGE as YU
+            return YU.snapshot()
+        except Exception:
+            return {}
 
 
 def llm_status() -> str:
+    """ok if the configured completion provider (LLM_PROVIDER + per-role overrides) is
+    usable, else unconfigured. Multi-provider aware via the gateway."""
     try:
-        from config import YANDEX_API_KEY
-        return "ok" if YANDEX_API_KEY else "unconfigured"
+        from llm_gateway import gateway
+        return "ok" if gateway.is_available() else "unconfigured"
     except Exception:
-        return "fail"
+        try:
+            from config import YANDEX_API_KEY
+            return "ok" if YANDEX_API_KEY else "unconfigured"
+        except Exception:
+            return "fail"
 
 
 def health() -> Dict[str, Any]:

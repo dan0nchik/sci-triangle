@@ -9,6 +9,9 @@ import { FiltersPanel } from '../components/FiltersPanel'
 import { AnswerMarkdown } from '../components/AnswerMarkdown'
 import { SourceDrawer } from '../components/SourceDrawer'
 import { ConfidenceBadge } from '../components/ConfidenceBadge'
+import { ExplainPanel } from '../components/ExplainPanel'
+import { ActiveFilterChips } from '../components/ActiveFilterChips'
+import { UploadModal, UPLOAD_ENABLED } from '../components/UploadModal'
 import {
   ContradictionsSection,
   ExpertsSection,
@@ -32,7 +35,7 @@ const INTENT_LABEL: Record<string, string> = {
 
 export function SearchPage() {
   const nav = useNavigate()
-  const { role, lastResult, setLastResult, lastQuery, setLastQuery, history, pushHistory } = useApp()
+  const { role, lastResult, setLastResult, lastQuery, setLastQuery, history, pushHistory, openDoc } = useApp()
   const [query, setQuery] = useState(lastQuery)
   const [filters, setFilters] = useState<SearchFilters>(DEFAULT_FILTERS)
   const [loading, setLoading] = useState(false)
@@ -41,6 +44,7 @@ export function SearchPage() {
   const [drawer, setDrawer] = useState<{ c: Citation; i: number } | null>(null)
   const [exporting, setExporting] = useState<ExportFormat | null>(null)
   const [exportMsg, setExportMsg] = useState<string | null>(null)
+  const [uploadOpen, setUploadOpen] = useState(false)
 
   const result = lastResult
 
@@ -105,12 +109,19 @@ export function SearchPage() {
 
   return (
     <div className="mx-auto max-w-7xl px-6 py-8">
-      <header className="mb-6">
-        <h1 className="text-2xl font-semibold text-white">Поиск по карте знаний R&D</h1>
-        <p className="text-slate-400 mt-1">
-          Задайте вопрос на естественном языке — система вернёт связный ответ с доказательствами,
-          источниками, подграфом знаний и экспертами.
-        </p>
+      <header className="mb-6 flex items-start justify-between gap-4">
+        <div>
+          <h1 className="text-2xl font-semibold text-fg">Поиск по карте знаний R&D</h1>
+          <p className="text-fg-muted mt-1">
+            Задайте вопрос на естественном языке — система вернёт связный ответ с доказательствами,
+            источниками, подграфом знаний и экспертами.
+          </p>
+        </div>
+        {UPLOAD_ENABLED && (
+          <button onClick={() => setUploadOpen(true)} className="btn-ghost shrink-0">
+            ⭳ Добавить документ
+          </button>
+        )}
       </header>
 
       {/* Крупная NL-строка */}
@@ -124,9 +135,9 @@ export function SearchPage() {
             }}
             rows={2}
             placeholder="Например: оптимальная скорость циркуляции католита при электроэкстракции никеля…"
-            className="w-full resize-none rounded-xl bg-ink-800 border border-ink-600 px-4 py-3.5 text-base text-slate-100 placeholder:text-slate-600 focus:outline-none focus:border-accent"
+            className="w-full resize-none rounded-xl bg-ink-800 border border-ink-600 px-4 py-3.5 text-base text-fg placeholder:text-fg-faint focus:outline-none focus:border-accent"
           />
-          <span className="absolute right-3 bottom-2.5 text-[11px] text-slate-600">⌘/Ctrl + Enter</span>
+          <span className="absolute right-3 bottom-2.5 text-[11px] text-fg-faint">⌘/Ctrl + Enter</span>
         </div>
         <button
           onClick={() => run(query)}
@@ -139,7 +150,7 @@ export function SearchPage() {
 
       {/* 4 кликабельных примера — golden queries */}
       <div className="mt-3 flex flex-wrap gap-2">
-        <span className="text-xs text-slate-500 self-center mr-1">Примеры:</span>
+        <span className="text-xs text-fg-muted self-center mr-1">Примеры:</span>
         {GOLDEN_QUERIES.map((g) => (
           <button
             key={g.title}
@@ -148,7 +159,7 @@ export function SearchPage() {
               run(g.query)
             }}
             title={g.hint}
-            className="chip bg-ink-800 border border-ink-600 text-slate-300 hover:border-accent hover:text-accent-soft"
+            className="chip bg-ink-800 border border-ink-600 text-fg-body hover:border-accent hover:text-accent-soft"
           >
             {g.title}
           </button>
@@ -164,25 +175,35 @@ export function SearchPage() {
 
         {/* Область результатов */}
         <div className="min-w-0 space-y-6">
+          {/* Активные фильтры — видимыми чипами над результатом */}
+          <ActiveFilterChips
+            filters={filters}
+            onChange={setFilters}
+            onReset={() => setFilters(DEFAULT_FILTERS)}
+          />
+
           {loading && <LoadingSkeleton />}
 
           {error && !loading && (
             <div className="card p-5 border-rose-500/40 bg-rose-500/[0.06]">
-              <div className="text-rose-300 font-medium">Ошибка запроса</div>
-              <p className="text-sm text-slate-400 mt-1">{error}</p>
-              <p className="text-xs text-slate-500 mt-2">
+              <div className="text-rose-600 font-medium">Ошибка запроса</div>
+              <p className="text-sm text-fg-muted mt-1">{error}</p>
+              <p className="text-xs text-fg-muted mt-2">
                 Проверьте, что бэкенд доступен (VITE_API_URL), или уберите переменную для работы на моках.
               </p>
             </div>
           )}
 
           {denied && !loading && (
-            <div className="card p-5 border-amber-500/40 bg-amber-500/[0.06]">
-              <div className="text-amber-300 font-medium">Недостаточно прав (401/403)</div>
-              <p className="text-sm text-slate-400 mt-1">
-                Для роли «{role === RESTRICTED_ROLE ? 'внешний партнёр' : role}» часть данных недоступна:
-                внутренние разделы (Статьи, Доклады) скрыты на уровне выдачи. Смените роль в левой панели
-                или уточните запрос по открытым источникам.
+            <div className="card p-5 border-ink-600 bg-ink-850">
+              <div className="text-fg font-medium flex items-center gap-2">
+                <span className="text-accent">ℹ</span> Показаны только открытые источники
+              </div>
+              <p className="text-sm text-fg-muted mt-1">
+                Активен демо-режим ограниченного доступа
+                {role === RESTRICTED_ROLE ? ' («внешний партнёр»)' : ''}: часть внутренних разделов
+                скрыта на уровне выдачи. Это демонстрация разграничения доступа — переключите
+                демо-режим в настройках (подвал слева), чтобы увидеть полный ответ.
               </p>
             </div>
           )}
@@ -197,13 +218,13 @@ export function SearchPage() {
                   интент: {INTENT_LABEL[result.intent.type] ?? result.intent.type}
                 </span>
                 <ConfidenceBadge level={result.confidence_summary.overall} />
-                <span className="chip bg-ink-700 text-slate-400">
+                <span className="chip bg-ink-700 text-fg-muted">
                   источников: {result.citations.length}
                 </span>
-                <span className="chip bg-ink-700 text-slate-400">
+                <span className="chip bg-ink-700 text-fg-muted">
                   узлов: {result.subgraph.nodes.length}
                 </span>
-                <span className="chip bg-ink-700 text-slate-400">{result.took_ms} мс</span>
+                <span className="chip bg-ink-700 text-fg-muted">{result.took_ms} мс</span>
                 <button
                   onClick={() => nav('/graph')}
                   className="chip bg-node-process/15 text-node-process hover:brightness-125 ml-auto"
@@ -214,35 +235,44 @@ export function SearchPage() {
 
               {/* Экспорт evidence packet (D7) */}
               <div className="flex flex-wrap items-center gap-2">
-                <span className="text-xs text-slate-500 mr-1">Экспорт:</span>
+                <span className="text-xs text-fg-muted mr-1">Экспорт:</span>
                 {(['md', 'jsonld', 'pdf', 'xlsx'] as ExportFormat[]).map((f) => (
                   <button
                     key={f}
                     onClick={() => doExport(f)}
                     disabled={exporting !== null}
-                    className="chip bg-ink-700 text-slate-300 hover:text-accent-soft border border-ink-600 disabled:opacity-40"
+                    className="chip bg-ink-700 text-fg-body hover:text-accent-soft border border-ink-600 disabled:opacity-40"
                   >
                     {exporting === f ? '…' : '⭳'} {f === 'jsonld' ? 'JSON-LD' : f.toUpperCase()}
                   </button>
                 ))}
-                {exportMsg && <span className="text-xs text-slate-400">{exportMsg}</span>}
+                {exportMsg && <span className="text-xs text-fg-muted">{exportMsg}</span>}
               </div>
 
               {/* Markdown-ответ с inline-цитатами */}
               <div className="card p-6">
                 <AnswerMarkdown markdown={result.answer_md} onCite={openCite} />
                 {result.confidence_summary.note && (
-                  <p className="mt-4 pt-3 border-t border-ink-700 text-xs text-slate-500">
+                  <p className="mt-4 pt-3 border-t border-ink-700 text-xs text-fg-muted">
                     ℹ {result.confidence_summary.note} (высокая: {result.confidence_summary.n_high},
                     средняя: {result.confidence_summary.n_medium}, низкая: {result.confidence_summary.n_low})
                   </p>
                 )}
               </div>
 
+              {/* Объяснимость: «Как получен ответ» (главная новая фича) */}
+              <ExplainPanel
+                result={result}
+                onOpenGraph={(focusNode) =>
+                  nav('/graph', focusNode ? { state: { focusNode } } : undefined)
+                }
+                onOpenDoc={(docId) => openDoc(docId)}
+              />
+
               {/* Список источников */}
               {result.citations.length > 0 && (
                 <section className="space-y-2">
-                  <h3 className="text-lg font-semibold text-white">Источники</h3>
+                  <h3 className="text-lg font-semibold text-fg">Источники</h3>
                   <div className="grid gap-2">
                     {result.citations.map((c, i) => (
                       <button
@@ -254,8 +284,8 @@ export function SearchPage() {
                           [{i + 1}]
                         </span>
                         <div className="min-w-0">
-                          <div className="text-sm text-slate-200 truncate">{c.title}</div>
-                          <div className="text-xs text-slate-500 truncate">
+                          <div className="text-sm text-fg-body truncate">{c.title}</div>
+                          <div className="text-xs text-fg-muted truncate">
                             {c.year} · {c.doc_id} · «{c.quote.slice(0, 90)}…»
                           </div>
                         </div>
@@ -281,6 +311,8 @@ export function SearchPage() {
         index={drawer?.i ?? null}
         onClose={() => setDrawer(null)}
       />
+
+      {uploadOpen && <UploadModal onClose={() => setUploadOpen(false)} />}
     </div>
   )
 }
@@ -305,7 +337,7 @@ function LoadingSkeleton() {
         <div className="skeleton h-14 w-full" />
         <div className="skeleton h-14 w-full" />
       </div>
-      <p className="text-center text-sm text-slate-500 animate-pulse">
+      <p className="text-center text-sm text-fg-muted animate-pulse">
         Идёт retrieval и синтез evidence packet… (может занять до 5 с)
       </p>
     </div>
@@ -323,8 +355,8 @@ function HistoryPanel({
   return (
     <div className="card p-4 space-y-2">
       <div className="flex items-center justify-between">
-        <h3 className="font-semibold text-white text-sm">История запросов</h3>
-        <span className="chip bg-ink-700 text-slate-500">{history.length}</span>
+        <h3 className="font-semibold text-fg text-sm">История запросов</h3>
+        <span className="chip bg-ink-700 text-fg-muted">{history.length}</span>
       </div>
       <div className="space-y-1.5 max-h-64 overflow-y-auto">
         {history.map((h) => (
@@ -334,8 +366,8 @@ function HistoryPanel({
             title={h.query}
             className="w-full text-left rounded-lg border border-ink-700 hover:border-accent-dim bg-ink-850 px-2.5 py-1.5"
           >
-            <div className="text-xs text-slate-200 truncate">{h.query}</div>
-            <div className="text-[10px] text-slate-500">
+            <div className="text-xs text-fg-body truncate">{h.query}</div>
+            <div className="text-[10px] text-fg-muted">
               {new Date(h.ts).toLocaleString('ru')}
               {h.n_citations != null ? ` · ${h.n_citations} источн.` : ''}
             </div>
@@ -350,8 +382,8 @@ function EmptyState() {
   return (
     <div className="card p-10 text-center">
       <div className="text-5xl mb-3">🧭</div>
-      <h3 className="text-lg font-semibold text-white">Начните с вопроса</h3>
-      <p className="text-slate-400 mt-1 max-w-md mx-auto">
+      <h3 className="text-lg font-semibold text-fg">Начните с вопроса</h3>
+      <p className="text-fg-muted mt-1 max-w-md mx-auto">
         Введите запрос выше или выберите один из готовых примеров (golden queries). Ответ придёт
         со ссылками на дословные фрагменты источников.
       </p>

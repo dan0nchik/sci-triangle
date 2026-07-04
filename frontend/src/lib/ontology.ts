@@ -1,18 +1,20 @@
 // Фиксированная палитра и подписи типов узлов/связей (единый источник для UI и графа).
 import type { Confidence, EdgeType, NodeType } from '../api/types'
 
+// Палитра типов узлов — гармоничная производная от фирменного синего «Норникеля»
+// (стр. 35 брендбука), различимая на светлом холсте. Синхронизирована с tailwind node.*
 export const NODE_COLORS: Record<NodeType, string> = {
-  Material: '#4fc3f7',
-  Process: '#81c784',
-  Equipment: '#ffb74d',
-  Condition: '#ba68c8',
-  Assertion: '#f06292',
-  Publication: '#90a4ae',
-  Expert: '#fff176',
-  Facility: '#4db6ac',
-  Parameter: '#9575cd',
-  Measurement: '#4dd0e1',
-  Experiment: '#a1887f',
+  Material: '#0077C8',    // фирменный синий
+  Process: '#17A2A2',     // бирюзовый
+  Equipment: '#E07B00',   // оранжевый
+  Condition: '#7A5AC2',   // фиолетовый
+  Assertion: '#D6336C',   // пурпурный
+  Publication: '#64748B', // серо-синий
+  Expert: '#C79200',      // золотой
+  Facility: '#2E8B72',    // изумрудный
+  Parameter: '#6D5BB0',   // сине-фиолетовый
+  Measurement: '#0E9AA7', // сине-циан
+  Experiment: '#A5744B',  // коричневый
 }
 
 export const NODE_LABELS: Record<NodeType, string> = {
@@ -56,10 +58,11 @@ export const EDGE_LABELS: Record<EdgeType, string> = {
 // Цепочка для подсветки: материал → процесс → оборудование → результат
 export const CHAIN_TYPES: NodeType[] = ['Material', 'Process', 'Equipment']
 
+// Бейджи достоверности — семантика high/medium/low сохранена и различима на светлой теме.
 export const CONFIDENCE_META: Record<Confidence, { label: string; color: string; bg: string }> = {
-  high: { label: 'Высокая', color: '#4ade80', bg: 'rgba(74,222,128,0.14)' },
-  medium: { label: 'Средняя', color: '#fbbf24', bg: 'rgba(251,191,36,0.14)' },
-  low: { label: 'Низкая', color: '#f87171', bg: 'rgba(248,113,113,0.14)' },
+  high: { label: 'Высокая', color: '#12A150', bg: 'rgba(18,161,80,0.12)' },
+  medium: { label: 'Средняя', color: '#C77700', bg: 'rgba(199,119,0,0.12)' },
+  low: { label: 'Низкая', color: '#E03131', bg: 'rgba(224,49,49,0.12)' },
 }
 
 // 4 golden queries из §3 плана — кликабельные примеры на экране поиска.

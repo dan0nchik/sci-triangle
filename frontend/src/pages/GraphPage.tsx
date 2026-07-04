@@ -124,18 +124,18 @@ export function GraphPage() {
     <div className="h-full flex flex-col">
       {/* Панель управления */}
       <div className="flex flex-wrap items-center gap-3 px-6 py-3 border-b border-ink-700 bg-ink-850">
-        <h1 className="text-lg font-semibold text-white mr-2">Граф знаний</h1>
+        <h1 className="text-lg font-semibold text-fg mr-2">Граф знаний</h1>
         <div className="flex rounded-lg border border-ink-600 overflow-hidden">
           <button
             onClick={() => switchMode('answer')}
             disabled={!lastResult}
-            className={`px-3 py-1.5 text-sm ${mode === 'answer' ? 'bg-accent-dim/50 text-white' : 'text-slate-400 hover:bg-ink-700'} disabled:opacity-40`}
+            className={`px-3 py-1.5 text-sm ${mode === 'answer' ? 'bg-accent-dim/50 text-fg' : 'text-fg-muted hover:bg-ink-700'} disabled:opacity-40`}
           >
             Подграф ответа
           </button>
           <button
             onClick={() => switchMode('overview')}
-            className={`px-3 py-1.5 text-sm ${mode === 'overview' ? 'bg-accent-dim/50 text-white' : 'text-slate-400 hover:bg-ink-700'}`}
+            className={`px-3 py-1.5 text-sm ${mode === 'overview' ? 'bg-accent-dim/50 text-fg' : 'text-fg-muted hover:bg-ink-700'}`}
           >
             Обзорный режим
           </button>
@@ -148,12 +148,12 @@ export function GraphPage() {
             onChange={(e) => setSearch(e.target.value)}
             onKeyDown={(e) => e.key === 'Enter' && runSearch()}
             placeholder="найти узел…"
-            className="w-40 bg-ink-800 border border-ink-600 rounded-lg px-2.5 py-1.5 text-sm text-slate-200 placeholder:text-slate-600 focus:outline-none focus:border-accent"
+            className="w-40 bg-ink-800 border border-ink-600 rounded-lg px-2.5 py-1.5 text-sm text-fg-body placeholder:text-fg-faint focus:outline-none focus:border-accent"
           />
           <button onClick={runSearch} className="btn-ghost text-xs px-2 py-1.5">→</button>
         </div>
 
-        <label className="flex items-center gap-2 text-sm text-slate-400 cursor-pointer">
+        <label className="flex items-center gap-2 text-sm text-fg-muted cursor-pointer">
           <input type="checkbox" checked={highlightChain} onChange={(e) => setHighlightChain(e.target.checked)} className="accent-accent" />
           Цепочка мат→проц→обор
         </label>
@@ -162,11 +162,11 @@ export function GraphPage() {
         {canEdit && (
           <label className="flex items-center gap-2 text-sm cursor-pointer">
             <input type="checkbox" checked={editMode} onChange={(e) => setEditMode(e.target.checked)} className="accent-cyan-400" />
-            <span className={editMode ? 'text-cyan-300' : 'text-slate-400'}>Режим правки (эксперт)</span>
+            <span className={editMode ? 'text-cyan-700' : 'text-fg-muted'}>Режим правки (эксперт)</span>
           </label>
         )}
 
-        <span className="ml-auto text-xs text-slate-500">
+        <span className="ml-auto text-xs text-fg-muted">
           {graph.nodes.length} узлов · {graph.edges.length} рёбер
           {expanded.nodes.length > 0 && ' (+соседи)'}
         </span>
@@ -175,7 +175,7 @@ export function GraphPage() {
       <div className="flex-1 flex min-h-0">
         {/* Легенда + фильтры + мини-стата */}
         <div className="w-56 shrink-0 border-r border-ink-700 bg-ink-850 p-4 overflow-y-auto">
-          <div className="text-xs uppercase tracking-wide text-slate-500 mb-2">Типы узлов (фильтр)</div>
+          <div className="text-xs uppercase tracking-wide text-fg-muted mb-2">Типы узлов (фильтр)</div>
           <div className="space-y-1">
             {[...LEGEND_PRIMARY, ...LEGEND_SECONDARY]
               .filter((t) => presentTypes.has(t))
@@ -188,8 +188,8 @@ export function GraphPage() {
                   }`}
                 >
                   <span className="h-3 w-3 rounded-full shrink-0" style={{ backgroundColor: NODE_COLORS[t] }} />
-                  <span className="text-slate-300 flex-1">{NODE_LABELS[t]}</span>
-                  <span className="text-[11px] text-slate-500">{typeCounts.get(t) ?? 0}</span>
+                  <span className="text-fg-body flex-1">{NODE_LABELS[t]}</span>
+                  <span className="text-[11px] text-fg-muted">{typeCounts.get(t) ?? 0}</span>
                 </button>
               ))}
           </div>
@@ -199,14 +199,14 @@ export function GraphPage() {
             </button>
           )}
 
-          <div className="text-xs uppercase tracking-wide text-slate-500 mt-4 mb-2">Рёбра</div>
-          <div className="space-y-2 text-xs text-slate-400">
+          <div className="text-xs uppercase tracking-wide text-fg-muted mt-4 mb-2">Рёбра</div>
+          <div className="space-y-2 text-xs text-fg-muted">
             <div className="flex items-center gap-2"><span className="inline-block w-6 border-t border-dashed border-rose-500" /> противоречие</div>
-            <div className="flex items-center gap-2"><span className="inline-block w-6 border-t border-dotted border-cyan-400" /> ручная правка</div>
+            <div className="flex items-center gap-2"><span className="inline-block w-6 border-t border-dotted border-teal-600" /> ручная правка</div>
             <div className="flex items-center gap-2"><span className="inline-block w-6 border-t-2 border-accent" /> цепочка</div>
           </div>
 
-          <p className="text-[11px] text-slate-600 mt-4 leading-relaxed">
+          <p className="text-[11px] text-fg-faint mt-4 leading-relaxed">
             Клик по узлу — карточка. {editMode ? 'Клик по ребру — правка связи.' : 'Клик по пустому — сброс.'}
           </p>
         </div>
@@ -214,7 +214,7 @@ export function GraphPage() {
         {/* Холст */}
         <div className="flex-1 relative min-w-0 bg-ink-900">
           {graph.nodes.length === 0 ? (
-            <div className="absolute inset-0 flex items-center justify-center text-slate-500">
+            <div className="absolute inset-0 flex items-center justify-center text-fg-muted">
               {mode === 'answer' ? 'Нет подграфа ответа — сначала выполните поиск.' : 'Загрузка обзорного графа…'}
             </div>
           ) : (
@@ -279,30 +279,30 @@ function EdgeEditPanel({ edge, author, onClose }: { edge: GraphEdge; author: str
     <div className="absolute top-4 right-4 w-80">
       <div className="card p-4 space-y-3 border-cyan-500/40">
         <div className="flex items-center justify-between">
-          <span className="chip bg-cyan-500/15 text-cyan-300">Правка связи</span>
-          <button onClick={onClose} className="text-slate-500 hover:text-white text-lg leading-none">×</button>
+          <span className="chip bg-cyan-500/15 text-cyan-700">Правка связи</span>
+          <button onClick={onClose} className="text-fg-muted hover:text-fg text-lg leading-none">×</button>
         </div>
-        <div className="text-sm text-slate-300">
-          <span className="font-mono text-xs text-slate-500">{edge.src}</span>
+        <div className="text-sm text-fg-body">
+          <span className="font-mono text-xs text-fg-muted">{edge.src}</span>
           <div className="text-accent-soft my-0.5">— {EDGE_LABELS[edge.type] ?? edge.type} →</div>
-          <span className="font-mono text-xs text-slate-500">{edge.dst}</span>
+          <span className="font-mono text-xs text-fg-muted">{edge.dst}</span>
         </div>
         {edge.confidence != null && (
-          <div className="text-xs text-slate-500">confidence: {(edge.confidence * 100).toFixed(0)}% · метод: {edge.method ?? '—'}</div>
+          <div className="text-xs text-fg-muted">confidence: {(edge.confidence * 100).toFixed(0)}% · метод: {edge.method ?? '—'}</div>
         )}
         <textarea
           value={comment}
           onChange={(e) => setComment(e.target.value)}
           rows={2}
           placeholder="Комментарий эксперта…"
-          className="w-full resize-none rounded-lg bg-ink-800 border border-ink-600 px-2.5 py-1.5 text-sm text-slate-200 placeholder:text-slate-600 focus:outline-none focus:border-accent"
+          className="w-full resize-none rounded-lg bg-ink-800 border border-ink-600 px-2.5 py-1.5 text-sm text-fg-body placeholder:text-fg-faint focus:outline-none focus:border-accent"
         />
         <div className="flex gap-1.5">
-          <button disabled={busy} onClick={() => submit('confirm')} className="chip bg-emerald-500/15 text-emerald-300 flex-1 justify-center">✓ Подтвердить</button>
-          <button disabled={busy} onClick={() => submit('dispute')} className="chip bg-amber-500/15 text-amber-300 flex-1 justify-center">⚑ Оспорить</button>
-          <button disabled={busy} onClick={() => submit('correct')} className="chip bg-cyan-500/15 text-cyan-300 flex-1 justify-center">✎ Исправить</button>
+          <button disabled={busy} onClick={() => submit('confirm')} className="chip bg-emerald-500/15 text-emerald-600 flex-1 justify-center">✓ Подтвердить</button>
+          <button disabled={busy} onClick={() => submit('dispute')} className="chip bg-amber-500/15 text-amber-600 flex-1 justify-center">⚑ Оспорить</button>
+          <button disabled={busy} onClick={() => submit('correct')} className="chip bg-cyan-500/15 text-cyan-700 flex-1 justify-center">✎ Исправить</button>
         </div>
-        {msg && <p className="text-[11px] text-slate-400">{msg}</p>}
+        {msg && <p className="text-[11px] text-fg-muted">{msg}</p>}
       </div>
     </div>
   )

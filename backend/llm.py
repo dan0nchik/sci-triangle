@@ -1,10 +1,13 @@
-"""Backend-side wrapper over shared/yandex_client.py (C-query).
+"""Backend-side wrapper over the multi-provider LLM gateway + shared embeddings.
 
 Per project rules we do NOT edit shared/yandex_client.py. This thin wrapper:
-  * imports the shared client (retry/backoff, jsonSchema, sqlite emb-cache) if it
-    and its deps (`requests`) are importable and an API key is configured;
+  * routes COMPLETION through shared/llm_gateway.py (multi-provider: yandex /
+    openai_compatible / mock — selected via .env, no code change), keeping the exact
+    same behaviour byte-for-byte when LLM_PROVIDER=yandex (default);
+  * keeps EMBEDDINGS on shared/yandex_client.py directly (the gateway is
+    completion-only; embeddings are owned by a parallel agent — do not touch);
   * exposes a tiny, stable surface (`complete`, `embed_query_vec`, `embed_texts`);
-  * degrades gracefully to an offline hash embedding + no-LLM when the key/network
+  * degrades gracefully to an offline hash embedding + no-LLM when the provider/network
     is unavailable, so retrieval/synthesis never crash in tests or offline dev.
 
 Query embeddings use the *text-search-query* model (kind="query"), matching how the
@@ -35,32 +38,74 @@ except Exception as e:  # pragma: no cover
     _IMPORT_ERR = repr(e)
     _yc = None
 
-# Env switches (default: use LLM when a key is present).
+# Multi-provider completion gateway (yandex / openai_compatible / mock via .env).
+try:
+    from llm_gateway import gateway as _gateway  # type: ignore
+except Exception as e:  # pragma: no cover
+    _gateway = None
+
+# Embeddings-Gateway: multi-space embedding (active space via env EMBEDDING_SPACE).
+# The vector branch embeds queries/candidates in the SAME space as the precomputed
+# chunk matrix. The Yandex entity-index path (embed_query_vec, kind="query") is left
+# on Yandex for Neo4j entity-vector compatibility.
+_emb_gw = None
+try:
+    from shared import embeddings_gateway as _emb_gw  # type: ignore
+except Exception:  # pragma: no cover
+    try:
+        import embeddings_gateway as _emb_gw  # type: ignore
+    except Exception:
+        _emb_gw = None
+
+EMBEDDING_SPACE = os.environ.get("EMBEDDING_SPACE", "yandex-256")
+
+# Env switches (default: use LLM when a provider is available).
 _SYNTH_MODE = os.environ.get("SCITANGLE_SYNTH", "llm").lower()   # llm | template
 _PLAN_MODE = os.environ.get("SCITANGLE_PLANNER", "llm").lower()  # llm | fallback
 
 
-def _key_ok() -> bool:
-    return bool(_yc and getattr(_yc, "API_KEY", "") and getattr(_yc, "FOLDER_ID", ""))
+def _provider_available(role: Optional[str] = None) -> bool:
+    """Is the configured completion provider (for this role) usable right now?"""
+    if _gateway is None:
+        return bool(_yc and getattr(_yc, "API_KEY", "") and getattr(_yc, "FOLDER_ID", ""))
+    return _gateway.is_available(role)
 
 
-LLM_AVAILABLE = _key_ok()
+# Back-compat flag: reflects the *default* provider availability (yandex key when
+# LLM_PROVIDER=yandex). Kept for callers/imports that reference it.
+LLM_AVAILABLE = _provider_available()
 
 
 def llm_enabled_for_synth() -> bool:
-    return LLM_AVAILABLE and _SYNTH_MODE != "template"
+    return _SYNTH_MODE != "template" and _provider_available("synthesis")
 
 
 def llm_enabled_for_planner() -> bool:
-    return LLM_AVAILABLE and _PLAN_MODE != "fallback"
+    return _PLAN_MODE != "fallback" and _provider_available("planner")
 
 
 # --------------------------------------------------------------------- completion
 def complete(messages: Sequence[Dict[str, str]], model: str = "pro",
              temperature: float = 0.2, max_tokens: int = 1200,
              json_schema: Optional[dict] = None, parse_json: bool = False,
-             max_retries: int = 4) -> Optional[Dict[str, Any]]:
-    """Return {text, json?, ...} or None on any failure (caller falls back)."""
+             max_retries: int = 4,
+             model_role: Optional[str] = None) -> Optional[Dict[str, Any]]:
+    """Return {text, json?, provider, model, ...} or None on any failure (caller falls back).
+
+    `model_role` selects the provider/model via .env (planner|synthesis|summaries|
+    extraction). `model` stays the per-role default so behaviour is byte-for-byte
+    identical to before when LLM_PROVIDER=yandex and no per-role override is set.
+    """
+    if _gateway is not None:
+        try:
+            return _gateway.complete(
+                list(messages), json_schema=json_schema, model_role=model_role,
+                default_model=model, temperature=temperature, max_tokens=max_tokens,
+                parse_json=parse_json, max_retries=max_retries,
+            )
+        except Exception:
+            return None
+    # legacy path (gateway import failed): direct yandex client
     if not LLM_AVAILABLE:
         return None
     try:
@@ -94,11 +139,31 @@ def embed_query_vec(text: str) -> List[float]:
 
 
 def embed_query_doc(text: str) -> List[float]:
-    """Embed a query in DOC space (text-search-doc), so cosine is computed in the
-    same doc-doc space as the precomputed chunk embeddings. Yandex query/doc spaces
-    are asymmetric; matching query↔chunk in doc-doc space separates on-topic golden
-    chunks from domain-adjacent adversarial ones far better (direction-B finding)."""
+    """Embed a query in the ACTIVE embedding space so cosine is computed in the same
+    space as the precomputed chunk matrix. Per-space `query_kind` handles the model's
+    query/passage convention: Yandex is asymmetric -> query embedded as "doc" (doc-doc
+    match, direction-B finding); e5 -> "query: " prefix (kind="query"). Falls back to
+    the legacy Yandex doc path if the gateway is unavailable."""
+    if _emb_gw is not None:
+        try:
+            return _emb_gw.embed_query(text, space=EMBEDDING_SPACE)
+        except Exception:
+            pass
     return embed_texts([text], kind="doc")[0]
+
+
+def embed_chunk_doc(texts: Sequence[str]) -> List[List[float]]:
+    """Embed candidate CHUNK texts in the active space (kind="doc"/"passage"), used for
+    the bounded on-the-fly cosine of precompute-missing candidates. Same space as the
+    precomputed matrix so cosines are comparable."""
+    if not texts:
+        return []
+    if _emb_gw is not None:
+        try:
+            return _emb_gw.embed_texts(list(texts), kind="doc", space=EMBEDDING_SPACE)
+        except Exception:
+            pass
+    return embed_texts(list(texts), kind="doc")
 
 
 def cosine(a: Sequence[float], b: Sequence[float]) -> float:

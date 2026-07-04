@@ -108,6 +108,11 @@ export interface SearchFilters {
   source_type?: SourceType | null
   confidence_min?: number // 0..1
   domain?: Domain | null
+  // Мультипараметрическая фильтрация «материал / процесс» (Q&A: «плюс в карму»).
+  // Клиентская подсказка — заполняется быстрым выбором концептов из ответа;
+  // бэкенд может игнорировать (поля опциональны, вне обязательного контракта §4.3).
+  material?: string | null
+  process?: string | null
 }
 
 export type Role =
@@ -148,6 +153,26 @@ export interface Intent {
   numeric_constraints?: string[]
   geography?: Geography | 'all'
   years?: [number, number]
+}
+
+// ---- Объяснимость: как получен ответ (retrieval trace) -----------------------
+// Форма согласуется с backend-агентом «Answer-Quality» через docs/CONTRACT_TRACE.md.
+// Пока контракта нет — фронтенд принимает этот shape, а при его отсутствии
+// синтезирует правдоподобный trace из ответа (adaptSearch → deriveTrace).
+export type RetrievalBranchKind = 'lexical' | 'semantic' | 'graph'
+
+export interface RetrievalBranch {
+  kind: RetrievalBranchKind
+  hits?: number // сколько кандидатов дала ветка
+  used: boolean // сработала ли ветка (внесла вклад в фьюжн)
+  note?: string // пояснение понятными словами
+}
+
+export interface RetrievalTrace {
+  branches: RetrievalBranch[]
+  fusion?: string // напр. «RRF (k=60) + скор-гейтинг»
+  total_candidates?: number
+  synthesized?: boolean // true = собрано на фронте (бэкенд не прислал поле)
 }
 
 export interface ExpertSummary {
@@ -200,6 +225,9 @@ export interface SearchResponse {
   confidence_summary: ConfidenceSummary
   took_ms: number
   search_id: string
+  // Трасса извлечения (объяснимость). Опционально: бэкенд-агент «Answer-Quality»
+  // добавляет её в /api/search; при отсутствии — синтезируется адаптером.
+  retrieval_trace?: RetrievalTrace
 }
 
 // ---- Граф: node/overview (§4.3 GET /api/graph/*) -----------------------------
@@ -333,6 +361,55 @@ export interface ReviewResult {
   comment?: string
   version?: number
   updated_at?: string
+}
+
+// ---- Загрузка документа (docs/CONTRACT_UPLOAD.md) -----------------------------
+export type UploadStage =
+  | 'queued'
+  | 'extracting_text'
+  | 'chunking'
+  | 'embedding'
+  | 'indexing'
+  | 'extracting_knowledge'
+  | 'merging_graph'
+  | 'done'
+  | 'failed'
+
+export type UploadStageStatus = 'ok' | 'skipped' | 'deferred' | 'partial'
+
+export interface UploadStageInfo {
+  status: UploadStageStatus
+  detail?: string
+  took_ms?: number
+  [k: string]: unknown
+}
+
+export interface UploadResult {
+  doc_id: string
+  n_chunks: number
+  n_entities: number
+  n_edges: number
+  extraction_deferred: boolean
+  graph_preview: Subgraph // ≤30 узлов, та же онтология, что и subgraph ответа
+  stages: Partial<Record<Exclude<UploadStage, 'queued' | 'done' | 'failed'>, UploadStageInfo>>
+}
+
+export interface UploadStartResponse {
+  job_id: string
+  doc_id: string
+  cached: boolean
+  stage: UploadStage
+}
+
+export interface UploadJobStatus {
+  job_id: string
+  doc_id: string
+  filename?: string
+  stage: UploadStage
+  progress: number // 0..1
+  detail?: string
+  error?: string | null
+  result?: UploadResult | null
 }
 
 // ---- История запросов (D7, localStorage) -------------------------------------

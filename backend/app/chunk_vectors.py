@@ -14,10 +14,17 @@ over ~29k x 256 is <10 ms and needs no re-index (documented in backend/README.md
 
 The file is reloaded automatically when its mtime changes, so a running backend picks
 up a growing precompute (checkpoint tests) without a restart.
+
+MULTI-EMBEDDING: the ACTIVE space is selected by env EMBEDDING_SPACE (default
+"yandex-256"). Vectors load from graph/embeddings/{space}/chunk_embeddings.npy;
+for yandex-256 the legacy FLAT path (graph/embeddings/chunk_embeddings.npy) is used
+as a fallback so an un-migrated deployment keeps working. Dim is inferred from the
+matrix (256 for Yandex, 1024 for e5-large) — cosine math is dim-agnostic.
 """
 from __future__ import annotations
 
 import json
+import os
 import threading
 from pathlib import Path
 from typing import List, Optional, Tuple
@@ -25,18 +32,38 @@ from typing import List, Optional, Tuple
 import numpy as np
 
 _REPO = Path(__file__).resolve().parent.parent.parent
-_NPY = _REPO / "graph" / "embeddings" / "chunk_embeddings.npy"
-_IDS = _REPO / "graph" / "embeddings" / "chunk_ids.json"
+_EMB_ROOT = _REPO / "graph" / "embeddings"
+_SPACE = os.environ.get("EMBEDDING_SPACE", "yandex-256")
+
+
+def _resolve_paths() -> tuple[Path, Path]:
+    """Active-space npy/ids paths, with legacy flat-path fallback for yandex-256."""
+    d = _EMB_ROOT / _SPACE
+    npy, ids = d / "chunk_embeddings.npy", d / "chunk_ids.json"
+    if npy.exists() and ids.exists():
+        return npy, ids
+    # legacy flat layout (pre-migration) — only valid for the default Yandex space
+    if _SPACE == "yandex-256":
+        return _EMB_ROOT / "chunk_embeddings.npy", _EMB_ROOT / "chunk_ids.json"
+    return npy, ids
+
+
+_NPY, _IDS = _resolve_paths()
 
 _lock = threading.Lock()
-_mat: Optional[np.ndarray] = None          # [N,256] L2-normalized float32
+_mat: Optional[np.ndarray] = None          # [N,dim] L2-normalized float32
 _ids: List[dict] = []                       # row -> {chunk_id, doc_id}
 _index: dict = {}                           # chunk_id -> row
 _mtime: float = 0.0
 
 
+def active_space() -> str:
+    return _SPACE
+
+
 def _load(force: bool = False) -> None:
-    global _mat, _ids, _index, _mtime
+    global _mat, _ids, _index, _mtime, _NPY, _IDS
+    _NPY, _IDS = _resolve_paths()
     if not _NPY.exists() or not _IDS.exists():
         return
     mt = _NPY.stat().st_mtime

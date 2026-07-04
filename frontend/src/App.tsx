@@ -15,7 +15,7 @@ const ComparePage = lazy(() => import('./pages/ComparePage').then((m) => ({ defa
 
 function PageFallback() {
   return (
-    <div className="flex h-full items-center justify-center text-slate-500">
+    <div className="flex h-full items-center justify-center text-fg-muted">
       <div className="flex items-center gap-3">
         <span className="h-4 w-4 rounded-full border-2 border-accent border-t-transparent animate-spin" />
         Загрузка экрана…

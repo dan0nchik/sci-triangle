@@ -1,4 +1,6 @@
-import type { Domain, SearchFilters, Section, SourceType } from '../api/types'
+import { useMemo } from 'react'
+import type { Domain, NodeType, SearchFilters, Section, SourceType } from '../api/types'
+import { useApp } from '../store'
 
 const GEO: { value: NonNullable<SearchFilters['geography']>; label: string }[] = [
   { value: 'all', label: 'Все' },
@@ -36,29 +38,64 @@ export function FiltersPanel({
   filters: SearchFilters
   onChange: (f: SearchFilters) => void
 }) {
+  const { lastResult } = useApp()
   const set = (patch: Partial<SearchFilters>) => onChange({ ...filters, ...patch })
   const yFrom = filters.year_from ?? 2000
   const yTo = filters.year_to ?? 2026
   const cmin = filters.confidence_min ?? 0
 
+  // Быстрый выбор материала/процесса из концептов последнего ответа.
+  const conceptNames = (type: NodeType): string[] => {
+    const seen = new Set<string>()
+    const out: string[] = []
+    for (const n of lastResult?.subgraph.nodes ?? []) {
+      if (n.type === type && !seen.has(n.name)) {
+        seen.add(n.name)
+        out.push(n.name)
+      }
+    }
+    return out.slice(0, 6)
+  }
+  const materials = useMemo(() => conceptNames('Material'), [lastResult])
+  const processes = useMemo(() => conceptNames('Process'), [lastResult])
+
   return (
     <div className="card p-4 space-y-5">
       <div className="flex items-center justify-between">
-        <h3 className="font-semibold text-white">Фильтры</h3>
+        <h3 className="font-semibold text-fg">Фильтры</h3>
         <button
           onClick={() =>
-            onChange({ year_from: 2000, year_to: 2026, geography: 'all', confidence_min: 0 })
+            onChange({
+              year_from: 2000, year_to: 2026, geography: 'all', confidence_min: 0,
+              section: null, source_type: null, domain: null, material: null, process: null,
+            })
           }
-          className="text-xs text-slate-500 hover:text-accent"
+          className="text-xs text-fg-muted hover:text-accent"
         >
           сбросить
         </button>
       </div>
 
+      {/* Материал / процесс — мультипараметрическая фильтрация по концептам */}
+      <ConceptFilter
+        label="Материал"
+        value={filters.material ?? ''}
+        options={materials}
+        placeholder="напр. штейн, католит"
+        onChange={(v) => set({ material: v || null })}
+      />
+      <ConceptFilter
+        label="Процесс"
+        value={filters.process ?? ''}
+        options={processes}
+        placeholder="напр. обратный осмос"
+        onChange={(v) => set({ process: v || null })}
+      />
+
       {/* Слайдер годов 2000–2026 (двойной) */}
       <div className="space-y-2">
-        <label className="text-xs uppercase tracking-wide text-slate-500">
-          Годы: <span className="text-slate-300">{yFrom} — {yTo}</span>
+        <label className="text-xs uppercase tracking-wide text-fg-muted">
+          Годы: <span className="text-fg-body">{yFrom} — {yTo}</span>
         </label>
         <div className="flex items-center gap-2">
           <input
@@ -76,7 +113,7 @@ export function FiltersPanel({
 
       {/* География */}
       <div className="space-y-2">
-        <label className="text-xs uppercase tracking-wide text-slate-500">География</label>
+        <label className="text-xs uppercase tracking-wide text-fg-muted">География</label>
         <div className="flex flex-wrap gap-1.5">
           {GEO.map((g) => (
             <button
@@ -85,7 +122,7 @@ export function FiltersPanel({
               className={`chip border ${
                 (filters.geography ?? 'all') === g.value
                   ? 'bg-accent-dim/40 border-accent-dim text-accent-soft'
-                  : 'bg-ink-800 border-ink-600 text-slate-400 hover:text-slate-200'
+                  : 'bg-ink-800 border-ink-600 text-fg-muted hover:text-fg-body'
               }`}
             >
               {g.label}
@@ -96,11 +133,11 @@ export function FiltersPanel({
 
       {/* Тип источника */}
       <div className="space-y-2">
-        <label className="text-xs uppercase tracking-wide text-slate-500">Тип источника</label>
+        <label className="text-xs uppercase tracking-wide text-fg-muted">Тип источника</label>
         <select
           value={filters.source_type ?? ''}
           onChange={(e) => set({ source_type: (e.target.value || null) as SourceType | null })}
-          className="w-full bg-ink-800 border border-ink-600 rounded-lg px-2.5 py-2 text-sm text-slate-200 focus:outline-none focus:border-accent"
+          className="w-full bg-ink-800 border border-ink-600 rounded-lg px-2.5 py-2 text-sm text-fg-body focus:outline-none focus:border-accent"
         >
           <option value="">любой</option>
           {SOURCE_TYPES.map((s) => (
@@ -111,11 +148,11 @@ export function FiltersPanel({
 
       {/* Раздел */}
       <div className="space-y-2">
-        <label className="text-xs uppercase tracking-wide text-slate-500">Раздел</label>
+        <label className="text-xs uppercase tracking-wide text-fg-muted">Раздел</label>
         <select
           value={filters.section ?? ''}
           onChange={(e) => set({ section: (e.target.value || null) as Section | null })}
-          className="w-full bg-ink-800 border border-ink-600 rounded-lg px-2.5 py-2 text-sm text-slate-200 focus:outline-none focus:border-accent"
+          className="w-full bg-ink-800 border border-ink-600 rounded-lg px-2.5 py-2 text-sm text-fg-body focus:outline-none focus:border-accent"
         >
           <option value="">любой</option>
           {SECTIONS.map((s) => (
@@ -126,11 +163,11 @@ export function FiltersPanel({
 
       {/* Домен */}
       <div className="space-y-2">
-        <label className="text-xs uppercase tracking-wide text-slate-500">Домен</label>
+        <label className="text-xs uppercase tracking-wide text-fg-muted">Домен</label>
         <select
           value={filters.domain ?? ''}
           onChange={(e) => set({ domain: (e.target.value || null) as Domain | null })}
-          className="w-full bg-ink-800 border border-ink-600 rounded-lg px-2.5 py-2 text-sm text-slate-200 focus:outline-none focus:border-accent"
+          className="w-full bg-ink-800 border border-ink-600 rounded-lg px-2.5 py-2 text-sm text-fg-body focus:outline-none focus:border-accent"
         >
           <option value="">любой</option>
           {DOMAINS.map((d) => (
@@ -141,8 +178,8 @@ export function FiltersPanel({
 
       {/* Порог достоверности */}
       <div className="space-y-2">
-        <label className="text-xs uppercase tracking-wide text-slate-500">
-          Порог достоверности: <span className="text-slate-300">{Math.round(cmin * 100)}%</span>
+        <label className="text-xs uppercase tracking-wide text-fg-muted">
+          Порог достоверности: <span className="text-fg-body">{Math.round(cmin * 100)}%</span>
         </label>
         <input
           type="range" min={0} max={0.95} step={0.05} value={cmin}
@@ -150,6 +187,62 @@ export function FiltersPanel({
           className="w-full accent-accent"
         />
       </div>
+    </div>
+  )
+}
+
+// Фильтр по концепту (материал/процесс): текстовое поле + быстрый выбор из ответа.
+function ConceptFilter({
+  label,
+  value,
+  options,
+  placeholder,
+  onChange,
+}: {
+  label: string
+  value: string
+  options: string[]
+  placeholder: string
+  onChange: (v: string) => void
+}) {
+  return (
+    <div className="space-y-2">
+      <label className="text-xs uppercase tracking-wide text-fg-muted">{label}</label>
+      <div className="relative">
+        <input
+          type="text"
+          value={value}
+          onChange={(e) => onChange(e.target.value)}
+          placeholder={placeholder}
+          className="w-full bg-ink-800 border border-ink-600 rounded-lg px-2.5 py-2 pr-7 text-sm text-fg-body focus:outline-none focus:border-accent"
+        />
+        {value && (
+          <button
+            onClick={() => onChange('')}
+            className="absolute right-2 top-1/2 -translate-y-1/2 text-fg-muted hover:text-accent"
+            aria-label={`Очистить ${label}`}
+          >
+            ×
+          </button>
+        )}
+      </div>
+      {options.length > 0 && (
+        <div className="flex flex-wrap gap-1.5">
+          {options.map((o) => (
+            <button
+              key={o}
+              onClick={() => onChange(value === o ? '' : o)}
+              className={`chip border text-[11px] ${
+                value === o
+                  ? 'bg-accent-dim/40 border-accent-dim text-accent-soft'
+                  : 'bg-ink-800 border-ink-600 text-fg-muted hover:text-fg-body'
+              }`}
+            >
+              {o.length > 22 ? o.slice(0, 20) + '…' : o}
+            </button>
+          ))}
+        </div>
+      )}
     </div>
   )
 }

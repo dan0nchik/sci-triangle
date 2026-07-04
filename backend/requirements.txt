@@ -14,3 +14,12 @@ structlog==26.1.0                  # JSON-логи / наблюдаемость
 openpyxl==3.1.5                    # xlsx-экспорт compare-таблиц
 Markdown==3.10.2                   # md -> HTML для pdf-экспорта
 weasyprint==69.0                   # pdf-экспорт (fallback: reportlab/HTML, см. exporters.py)
+# --- Upload-pipeline (POST /api/upload): reuse ingest+extract in-process ---
+python-multipart==0.0.20           # multipart/form-data (UploadFile)
+pymupdf==1.28.0                    # PDF text extraction (pipeline.ingest.textextract)
+python-docx==1.2.0                 # docx/docm extraction
+python-pptx==1.0.2                 # pptx extraction
+xlrd==2.0.2                        # legacy .xls extraction
+lxml                               # docm raw-OOXML fallback
+PyYAML                             # concepts registry (pipeline.extract.normalize)
+jsonschema                         # structured-output validation (llm_gateway)

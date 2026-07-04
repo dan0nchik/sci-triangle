@@ -4,7 +4,7 @@
 
 @layer base {
   :root {
-    color-scheme: dark;
+    color-scheme: light;
   }
   html,
   body,
@@ -12,8 +12,15 @@
     height: 100%;
   }
   body {
-    @apply bg-ink-900 text-slate-200 antialiased;
-    font-feature-settings: 'cv01', 'ss01';
+    @apply bg-ink-900 text-fg-body antialiased;
+    font-feature-settings: 'ss01';
+  }
+  /* Заголовки — фирменной геометрической гарнитурой (аналог Proxima Nova, стр. 36) */
+  h1,
+  h2,
+  h3 {
+    @apply font-display text-fg;
+    letter-spacing: -0.01em;
   }
   ::-webkit-scrollbar {
     width: 10px;
@@ -25,20 +32,28 @@
   ::-webkit-scrollbar-track {
     @apply bg-ink-850;
   }
+  /* Единые focus-состояния — фирменный синий */
+  a:focus-visible,
+  button:focus-visible,
+  input:focus-visible,
+  select:focus-visible,
+  textarea:focus-visible {
+    @apply outline-none ring-2 ring-accent/40 ring-offset-1 ring-offset-white;
+  }
 }
 
 @layer components {
   .card {
-    @apply bg-ink-800 border border-ink-700 rounded-xl;
+    @apply bg-ink-800 border border-ink-700 rounded-xl shadow-card;
   }
   .btn {
-    @apply inline-flex items-center gap-2 rounded-lg px-3 py-2 text-sm font-medium transition-colors;
+    @apply inline-flex items-center gap-2 rounded-lg px-3 py-2 text-sm font-semibold transition-colors;
   }
   .btn-accent {
-    @apply btn bg-accent text-ink-900 hover:bg-accent-soft disabled:opacity-40 disabled:cursor-not-allowed;
+    @apply btn bg-accent text-white hover:bg-accent-soft disabled:opacity-40 disabled:cursor-not-allowed;
   }
   .btn-ghost {
-    @apply btn text-slate-300 hover:bg-ink-700 border border-ink-600;
+    @apply btn font-medium text-fg-body bg-white hover:bg-ink-900 border border-ink-600;
   }
   .chip {
     @apply inline-flex items-center gap-1 rounded-full px-2.5 py-1 text-xs font-medium;
@@ -46,19 +61,36 @@
   .skeleton {
     @apply bg-ink-700 rounded animate-pulse;
   }
+  /* Верифицируемость: подсветка чисел/концентраций в дословных фрагментах —
+     амбер-маркер на фирменно-нейтральном фоне, чтобы эксперт сверил цифру. */
+  .num-hl {
+    @apply rounded px-0.5 font-semibold text-amber-800;
+    background-color: rgba(199, 119, 0, 0.18);
+    box-shadow: inset 0 -0.35em 0 rgba(199, 119, 0, 0.12);
+  }
+  /* Пульс-акцент для места, к которому проскроллили «проверить в источнике». */
+  .num-hl.num-hl--focus {
+    @apply ring-2 ring-accent;
+    animation: num-hl-pulse 1.6s ease-out 1;
+  }
 }
 
-/* Markdown-рендер evidence packet */
-.md h1 { @apply text-2xl font-semibold mt-2 mb-3 text-white; }
-.md h2 { @apply text-xl font-semibold mt-5 mb-2 text-white; }
-.md h3 { @apply text-lg font-semibold mt-4 mb-2 text-slate-100; }
-.md p { @apply my-2.5 leading-relaxed text-slate-300; }
-.md ul { @apply my-2.5 pl-5 list-disc space-y-1 text-slate-300; }
-.md ol { @apply my-2.5 pl-5 list-decimal space-y-1 text-slate-300; }
-.md strong { @apply text-white font-semibold; }
+@keyframes num-hl-pulse {
+  0% { background-color: rgba(0, 119, 200, 0.45); }
+  100% { background-color: rgba(199, 119, 0, 0.18); }
+}
+
+/* Markdown-рендер evidence packet — светлая тема */
+.md h1 { @apply text-2xl font-semibold mt-2 mb-3 text-fg; }
+.md h2 { @apply text-xl font-semibold mt-5 mb-2 text-fg; }
+.md h3 { @apply text-lg font-semibold mt-4 mb-2 text-fg; }
+.md p { @apply my-2.5 leading-relaxed text-fg-body; }
+.md ul { @apply my-2.5 pl-5 list-disc space-y-1 text-fg-body; }
+.md ol { @apply my-2.5 pl-5 list-decimal space-y-1 text-fg-body; }
+.md strong { @apply text-fg font-semibold; }
 .md a { @apply text-accent hover:underline; }
 .md table { @apply my-4 w-full text-sm border-collapse; }
-.md th { @apply border border-ink-600 bg-ink-700 px-3 py-1.5 text-left text-slate-200; }
-.md td { @apply border border-ink-600 px-3 py-1.5 text-slate-300; }
+.md th { @apply border border-ink-600 bg-ink-850 px-3 py-1.5 text-left text-fg; }
+.md td { @apply border border-ink-600 px-3 py-1.5 text-fg-body; }
 .md code { @apply bg-ink-700 rounded px-1.5 py-0.5 text-sm font-mono text-accent-soft; }
-.md blockquote { @apply border-l-2 border-accent-dim pl-3 my-3 text-slate-400 italic; }
+.md blockquote { @apply border-l-2 border-accent pl-3 my-3 text-fg-muted italic; }

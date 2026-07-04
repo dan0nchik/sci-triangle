@@ -109,8 +109,98 @@ def search(query: str, filters: Optional[Dict] = None,
         "contradictions": contradictions,
         "gaps": _contract_gaps(gaps),
         "confidence_summary": _contract_confidence(syn["confidence_summary"], assertions),
+        "retrieval_trace": _build_retrieval_trace(intent, ret, citations),
         "took_ms": int((time.time() - t0) * 1000),
         "search_id": "s_" + uuid.uuid4().hex[:12],
+    }
+
+
+# --------------------------------------------------------------------- retrieval trace
+# Explainability panel data (UX-Explainability agent, docs/CONTRACT_TRACE.md). Built here
+# from what retrieval.retrieve() already returns — retrieval.py (embedding-agent-owned) is
+# NOT modified. The core exposes per-citation signals (lex/sem/concept) + aggregate gate
+# counts, so per-branch stats are computed over the SURVIVING (post-gate) citations; the
+# pre-gate candidate pool is reported only as the aggregate `docs_considered`.
+def _build_retrieval_trace(intent: Dict[str, Any], ret: Dict[str, Any],
+                           citations: List[Dict]) -> Dict[str, Any]:
+    gate = ret.get("gate") or {}
+    n_candidates = int(gate.get("n_candidates") or 0)
+    n_kept = int(gate.get("n_kept") or 0)
+    namedoc = bool(gate.get("namedoc"))
+    gated = bool(gate.get("gated"))
+
+    # per-branch survivors, derived from each citation's live signals
+    branch_defs = [
+        ("lexical", "lex", "BM25 (Elasticsearch)"),
+        ("semantic", "sem", "cosine query↔chunk (precompute)"),
+        ("graph", "concept", "концепт-якорь графа / термин в тексте"),
+        ("doc-name", "namedoc", "совпадение имени/заголовка документа"),
+    ]
+    branches: List[Dict[str, Any]] = []
+    for name, sig, desc in branch_defs:
+        if sig == "namedoc":
+            # only a GLOBAL flag is exposed (which docs matched by name is not per-citation),
+            # so report activation, not a per-citation survivor count.
+            branches.append({
+                "name": name, "method": desc, "n_candidates": None,
+                "active": namedoc,
+                # per-citation attribution isn't exposed; `active` says the branch fired.
+                "n_passed_gate": None if namedoc else 0,
+                "top_signals": [],
+            })
+            continue
+        hits = []
+        for c in citations:
+            s = c.get("_signals") or {}
+            if s.get(sig):
+                title = c.get("title") or c.get("doc_id")
+                metric = (f"cos={c.get('_cosine')}" if sig == "sem"
+                          else f"rrf={c.get('_score')}" if sig == "lex"
+                          else c.get("doc_id"))
+                hits.append({"doc_id": c.get("doc_id"), "title": title, "signal": metric})
+        branches.append({
+            "name": name,
+            "method": desc,
+            # pre-gate per-branch candidate counts are not exposed by the retrieval core
+            # (owned by the embedding agent); null = unknown, not zero.
+            "n_candidates": None,
+            "n_passed_gate": len(hits),
+            "top_signals": hits[:3],
+        })
+
+    concepts_matched: List[Dict[str, Any]] = []
+    seen_c: set = set()
+    for e in (ret.get("concept_entities") or []):
+        cid = e.get("id")
+        nm = e.get("name")
+        if nm and cid not in seen_c:
+            seen_c.add(cid)
+            concepts_matched.append({"concept_id": cid, "name": nm,
+                                     "matched_from": "запрос"})
+    if not concepts_matched:
+        for c in (intent.get("concepts") or []):
+            nm = c.get("name") if isinstance(c, dict) else c
+            if nm and nm not in seen_c:
+                seen_c.add(nm)
+                concepts_matched.append({"concept_id": None, "name": str(nm),
+                                         "matched_from": "запрос"})
+
+    passed = bool(citations)
+    if passed:
+        reason = (f"{n_kept} чанков прошли скор-гейт (≥2 сигналов или сильный семантический)"
+                  + (" ; сильное совпадение имени документа" if namedoc else ""))
+    elif gated:
+        reason = ("скор-гейт: доказательств недостаточно "
+                  "(<2 сигналов и нет сильного семантического совпадения)")
+    else:
+        reason = "кандидатов не найдено"
+
+    return {
+        "branches": branches,
+        "concepts_matched": concepts_matched,
+        "gate": {"passed": passed, "reason": reason,
+                 "n_candidates": n_candidates, "n_kept": n_kept, "namedoc": namedoc},
+        "docs_considered": n_candidates,
     }
 
 

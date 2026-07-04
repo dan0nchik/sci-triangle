@@ -38,10 +38,31 @@ import llm  # noqa: E402
 from app import auth, chunk_vectors, db  # noqa: E402
 from app import concepts_registry as reg  # noqa: E402
 
-# --- gating thresholds (calibrated on the REAL corpus, doc-doc space) ---
-SEM_THRESHOLD = 0.58      # min doc-doc cosine to count a semantic signal
-SEM_STRONG = 0.66         # cosine high enough to keep a chunk on its own
-SEM_CONCEPT = 0.50        # with a concept signal, a lower cosine suffices
+# --- gating thresholds (calibrated per EMBEDDING SPACE) ---
+# Cosine distributions differ sharply between spaces: Yandex doc-doc spreads 0.3–0.8;
+# e5 (multilingual-e5-large) is compressed high (relevant ~0.82–0.90, adjacent ~0.78)
+# because of its "passage:"/"query:" contrastive training. Thresholds are therefore
+# selected by env EMBEDDING_SPACE. Override any of them with SEM_THRESHOLD/SEM_STRONG/
+# SEM_CONCEPT env vars after per-space recalibration.
+import os as _os
+
+_SPACE = _os.environ.get("EMBEDDING_SPACE", "yandex-256")
+_SPACE_GATES = {
+    # space_id: (SEM_THRESHOLD, SEM_STRONG, SEM_CONCEPT)
+    "yandex-256": (0.58, 0.66, 0.50),
+    # Qwen3-Embedding-0.6B (instruction-tuned query side, raw doc side, L2-normalized).
+    # CALIBRATED on the real corpus (scratchpad/calibrate.py): the metallurgy corpus is
+    # homogeneous, so cosines are COMPRESSED — on-topic query↔chunk ~0.42–0.54,
+    # same-domain "random" ~0.32 mean (p90 ~0.45, tail to ~0.56). Thresholds are set low
+    # accordingly; sem is one of three gate signals (≥2 required), so mild overlap is
+    # tolerated. Override with SEM_* env after fuller recalibration on full coverage.
+    "qwen3-0.6b": (0.42, 0.55, 0.38),
+    "hash-256":   (0.99, 0.99, 0.99),   # dev-only: hash space has no real semantics
+}
+_g = _SPACE_GATES.get(_SPACE, _SPACE_GATES["yandex-256"])
+SEM_THRESHOLD = float(_os.environ.get("SEM_THRESHOLD", _g[0]))
+SEM_STRONG = float(_os.environ.get("SEM_STRONG", _g[1]))
+SEM_CONCEPT = float(_os.environ.get("SEM_CONCEPT", _g[2]))
 LEX_FRAC = 0.12           # ES hit must reach this fraction of the top ES score
 RRF_K = 60
 MAX_CITATIONS = 6
@@ -495,7 +516,7 @@ def retrieve(query: str, intent: Dict[str, Any],
             onfly.append(cid)
     if onfly:
         onfly = onfly[:MAX_ONFLY_EMBED]
-        vecs = llm.embed_texts([candidates[c]["text"][:2600] for c in onfly], kind="doc")
+        vecs = llm.embed_chunk_doc([candidates[c]["text"][:2600] for c in onfly])
         for cid, cv in zip(onfly, vecs):
             candidates[cid]["cosine"] = llm.cosine(qdoc, cv)
     for rec in candidates.values():

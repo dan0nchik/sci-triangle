@@ -1,8 +1,9 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { api } from '../api/client'
 import type { DocumentMeta, GraphNode, Subgraph } from '../api/types'
 import { NODE_COLORS, NODE_LABELS } from '../lib/ontology'
+import { highlightNumbers } from '../lib/highlight'
 import { useApp } from '../store'
 
 const GEO_LABEL: Record<string, string> = { RU: 'Россия', foreign: 'Зарубеж', global: 'Мир' }
@@ -20,6 +21,7 @@ export function DocumentModal() {
   const [entities, setEntities] = useState<GraphNode[]>([])
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  const hlChunkRef = useRef<HTMLDivElement | null>(null)
 
   useEffect(() => {
     if (!openDocId) {
@@ -43,6 +45,22 @@ export function DocumentModal() {
       .catch(() => setEntities([]))
   }, [openDocId])
 
+  // «Проверить в источнике»: скролл к цитируемому чанку + пульс первого числа.
+  useEffect(() => {
+    if (!doc || !highlightChunkId) return
+    const t = setTimeout(() => {
+      const el = hlChunkRef.current
+      if (!el) return
+      el.scrollIntoView({ behavior: 'smooth', block: 'center' })
+      const mark = el.querySelector('.num-hl')
+      if (mark) {
+        mark.classList.add('num-hl--focus')
+        setTimeout(() => mark.classList.remove('num-hl--focus'), 1800)
+      }
+    }, 120)
+    return () => clearTimeout(t)
+  }, [doc, highlightChunkId])
+
   if (!openDocId) return null
 
   const close = () => setOpenDocId(null)
@@ -58,11 +76,11 @@ export function DocumentModal() {
         <div className="sticky top-0 z-10 flex items-center justify-between px-6 py-4 border-b border-ink-700 bg-ink-850">
           <div className="flex items-center gap-2">
             <span className="chip bg-node-publication/20 text-node-publication">Документ</span>
-            <span className="text-xs font-mono text-slate-500">{openDocId}</span>
+            <span className="text-xs font-mono text-fg-muted">{openDocId}</span>
           </div>
           <div className="flex items-center gap-2">
             <button onClick={openInGraph} className="btn-ghost text-xs">🕸 Открыть в графе</button>
-            <button onClick={close} className="text-slate-500 hover:text-white text-2xl leading-none">×</button>
+            <button onClick={close} className="text-fg-muted hover:text-fg text-2xl leading-none">×</button>
           </div>
         </div>
 
@@ -77,29 +95,29 @@ export function DocumentModal() {
           )}
 
           {error && !loading && (
-            <div className="card p-4 border-rose-500/40 bg-rose-500/[0.06] text-sm text-rose-300">{error}</div>
+            <div className="card p-4 border-rose-500/40 bg-rose-500/[0.06] text-sm text-rose-600">{error}</div>
           )}
 
           {doc && !loading && (
             <>
               <div>
-                <h2 className="text-xl font-semibold text-white leading-snug">{doc.title}</h2>
+                <h2 className="text-xl font-semibold text-fg leading-snug">{doc.title}</h2>
                 <div className="mt-3 flex flex-wrap gap-1.5 text-xs">
-                  <span className="chip bg-ink-700 text-slate-300">{doc.year} г.</span>
-                  <span className="chip bg-ink-700 text-slate-300">{TYPE_LABEL[doc.source_type] ?? doc.source_type}</span>
-                  <span className="chip bg-ink-700 text-slate-300">{doc.section}</span>
-                  <span className="chip bg-ink-700 text-slate-300">{GEO_LABEL[doc.geography_hint] ?? doc.geography_hint}</span>
-                  {doc.journal && <span className="chip bg-ink-700 text-slate-300">{doc.journal}</span>}
-                  <span className="chip bg-ink-700 text-slate-300">{doc.lang.toUpperCase()}</span>
-                  {doc.n_pages != null && <span className="chip bg-ink-700 text-slate-400">{doc.n_pages} стр.</span>}
-                  {doc.n_chunks != null && <span className="chip bg-ink-700 text-slate-400">{doc.n_chunks} чанков</span>}
+                  <span className="chip bg-ink-700 text-fg-body">{doc.year} г.</span>
+                  <span className="chip bg-ink-700 text-fg-body">{TYPE_LABEL[doc.source_type] ?? doc.source_type}</span>
+                  <span className="chip bg-ink-700 text-fg-body">{doc.section}</span>
+                  <span className="chip bg-ink-700 text-fg-body">{GEO_LABEL[doc.geography_hint] ?? doc.geography_hint}</span>
+                  {doc.journal && <span className="chip bg-ink-700 text-fg-body">{doc.journal}</span>}
+                  <span className="chip bg-ink-700 text-fg-body">{doc.lang.toUpperCase()}</span>
+                  {doc.n_pages != null && <span className="chip bg-ink-700 text-fg-muted">{doc.n_pages} стр.</span>}
+                  {doc.n_chunks != null && <span className="chip bg-ink-700 text-fg-muted">{doc.n_chunks} чанков</span>}
                 </div>
               </div>
 
               {/* Извлечённые сущности/Assertion */}
               {entities.length > 0 && (
                 <div>
-                  <div className="text-[11px] uppercase tracking-wide text-slate-500 mb-2">
+                  <div className="text-[11px] uppercase tracking-wide text-fg-muted mb-2">
                     Извлечённые сущности и утверждения ({entities.length})
                   </div>
                   <div className="flex flex-wrap gap-1.5">
@@ -120,7 +138,7 @@ export function DocumentModal() {
 
               {/* Чанки */}
               <div>
-                <div className="text-[11px] uppercase tracking-wide text-slate-500 mb-2">
+                <div className="text-[11px] uppercase tracking-wide text-fg-muted mb-2">
                   Фрагменты (чанки){doc.chunks ? ` · ${doc.chunks.length}` : ''}
                 </div>
                 <div className="space-y-3">
@@ -129,23 +147,24 @@ export function DocumentModal() {
                     return (
                       <div
                         key={c.chunk_id}
+                        ref={hl ? hlChunkRef : undefined}
                         className={`rounded-lg p-3 border ${
                           hl ? 'border-accent bg-accent-dim/15' : 'border-ink-700 bg-ink-800'
                         }`}
                       >
-                        <div className="flex items-center justify-between text-[11px] text-slate-500 mb-1.5">
+                        <div className="flex items-center justify-between text-[11px] text-fg-muted mb-1.5">
                           <span className="font-mono">{c.chunk_id}{c.section_title ? ` · ${c.section_title}` : ''}</span>
                           {c.page_from != null && (
                             <span>стр. {c.page_from}{c.page_to && c.page_to !== c.page_from ? `–${c.page_to}` : ''}</span>
                           )}
                         </div>
-                        <p className="text-sm text-slate-200 leading-relaxed">{c.text}</p>
+                        <p className="text-sm text-fg-body leading-relaxed">{highlightNumbers(c.text)}</p>
                         {hl && <div className="mt-1.5 text-[11px] text-accent-soft">↑ цитируемый в ответе фрагмент</div>}
                       </div>
                     )
                   })}
                   {(!doc.chunks || doc.chunks.length === 0) && (
-                    <p className="text-sm text-slate-500">Чанки документа недоступны.</p>
+                    <p className="text-sm text-fg-muted">Чанки документа недоступны.</p>
                   )}
                 </div>
               </div>

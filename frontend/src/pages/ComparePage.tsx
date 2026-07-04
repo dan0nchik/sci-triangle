@@ -86,8 +86,8 @@ export function ComparePage() {
   return (
     <div className="mx-auto max-w-6xl px-6 py-8 space-y-6">
       <header>
-        <h1 className="text-2xl font-semibold text-white">Сравнительный анализ</h1>
-        <p className="text-slate-400 mt-1">
+        <h1 className="text-2xl font-semibold text-fg">Сравнительный анализ</h1>
+        <p className="text-fg-muted mt-1">
           Сравнение технологий по ключевым параметрам (эффективность, условия, CAPEX, климат, экология).
         </p>
       </header>
@@ -96,13 +96,13 @@ export function ComparePage() {
       <div className="flex rounded-lg border border-ink-600 overflow-hidden w-max">
         <button
           onClick={() => switchMode('tech')}
-          className={`px-4 py-1.5 text-sm ${mode === 'tech' ? 'bg-accent-dim/50 text-white' : 'text-slate-400 hover:bg-ink-700'}`}
+          className={`px-4 py-1.5 text-sm ${mode === 'tech' ? 'bg-accent-dim/50 text-fg' : 'text-fg-muted hover:bg-ink-700'}`}
         >
           Технология vs технология
         </button>
         <button
           onClick={() => switchMode('ru_world')}
-          className={`px-4 py-1.5 text-sm ${mode === 'ru_world' ? 'bg-accent-dim/50 text-white' : 'text-slate-400 hover:bg-ink-700'}`}
+          className={`px-4 py-1.5 text-sm ${mode === 'ru_world' ? 'bg-accent-dim/50 text-fg' : 'text-fg-muted hover:bg-ink-700'}`}
         >
           РФ vs мир
         </button>
@@ -116,7 +116,7 @@ export function ComparePage() {
 
       {/* Параметры */}
       <div>
-        <div className="text-xs uppercase tracking-wide text-slate-500 mb-2">Параметры сравнения</div>
+        <div className="text-xs uppercase tracking-wide text-fg-muted mb-2">Параметры сравнения</div>
         <div className="flex flex-wrap gap-1.5">
           {allParams.map((p) => (
             <button
@@ -125,7 +125,7 @@ export function ComparePage() {
               className={`chip border ${
                 params.includes(p)
                   ? 'bg-accent-dim/40 border-accent-dim text-accent-soft'
-                  : 'bg-ink-800 border-ink-600 text-slate-400 hover:text-slate-200'
+                  : 'bg-ink-800 border-ink-600 text-fg-muted hover:text-fg-body'
               }`}
             >
               {p}
@@ -143,7 +143,7 @@ export function ComparePage() {
         )}
       </div>
 
-      {error && <div className="card p-4 border-rose-500/40 bg-rose-500/[0.06] text-sm text-rose-300">{error}</div>}
+      {error && <div className="card p-4 border-rose-500/40 bg-rose-500/[0.06] text-sm text-rose-600">{error}</div>}
 
       {loading && <div className="skeleton h-48 w-full" />}
 
@@ -152,22 +152,22 @@ export function ComparePage() {
           <table className="w-full text-sm">
             <thead>
               <tr className="border-b border-ink-700">
-                <th className="text-left px-4 py-3 text-slate-400 font-medium w-48">Параметр</th>
+                <th className="text-left px-4 py-3 text-fg-muted font-medium w-48">Параметр</th>
                 {data.techs.map((t) => (
-                  <th key={t.id} className="text-left px-4 py-3 text-white font-semibold">
+                  <th key={t.id} className="text-left px-4 py-3 text-fg font-semibold">
                     {t.name}
-                    <div className="text-[11px] font-normal font-mono text-slate-500">{t.id}</div>
+                    <div className="text-[11px] font-normal font-mono text-fg-muted">{t.id}</div>
                   </th>
                 ))}
               </tr>
             </thead>
             <tbody>
               {data.rows.map((r) => (
-                <tr key={r.param} className="border-b border-ink-800 last:border-0">
-                  <td className="px-4 py-3 text-slate-400 align-top capitalize">{r.param}</td>
+                <tr key={r.param} className="border-b border-ink-700 last:border-0">
+                  <td className="px-4 py-3 text-fg-muted align-top capitalize">{r.param}</td>
                   {r.values.map((v, i) => (
-                    <td key={i} className="px-4 py-3 text-slate-200 align-top">
-                      {v ?? <span className="text-slate-600">— нет данных</span>}
+                    <td key={i} className="px-4 py-3 text-fg-body align-top">
+                      {v ?? <span className="text-fg-faint">— нет данных</span>}
                     </td>
                   ))}
                 </tr>
@@ -178,7 +178,7 @@ export function ComparePage() {
       )}
 
       {!data && !loading && !error && (
-        <div className="card p-10 text-center text-slate-500">
+        <div className="card p-10 text-center text-fg-muted">
           Выберите две технологии и параметры, затем нажмите «Сравнить».
           {suggestions.length === 0 && ' Загрузка списка технологий…'}
         </div>
@@ -204,18 +204,18 @@ function TechSelect({
     : options
   return (
     <div className="card p-4 space-y-2">
-      <label className="text-xs uppercase tracking-wide text-slate-500">{label}</label>
+      <label className="text-xs uppercase tracking-wide text-fg-muted">{label}</label>
       <input
         value={q}
         onChange={(e) => setQ(e.target.value)}
         placeholder="фильтр по названию…"
-        className="w-full bg-ink-800 border border-ink-600 rounded-lg px-2.5 py-1.5 text-sm text-slate-200 placeholder:text-slate-600 focus:outline-none focus:border-accent"
+        className="w-full bg-ink-800 border border-ink-600 rounded-lg px-2.5 py-1.5 text-sm text-fg-body placeholder:text-fg-faint focus:outline-none focus:border-accent"
       />
       <select
         value={value}
         onChange={(e) => onChange(e.target.value)}
         size={5}
-        className="w-full bg-ink-800 border border-ink-600 rounded-lg px-2 py-1.5 text-sm text-slate-200 focus:outline-none focus:border-accent"
+        className="w-full bg-ink-800 border border-ink-600 rounded-lg px-2 py-1.5 text-sm text-fg-body focus:outline-none focus:border-accent"
       >
         {filtered.map((o) => (
           <option key={o.id} value={o.id}>

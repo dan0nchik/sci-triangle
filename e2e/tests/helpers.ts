@@ -32,8 +32,17 @@ export async function waitForAnswer(page: Page) {
   await expect(page.locator('.md').first()).toBeVisible({ timeout: 75_000 })
 }
 
-/** Сменить роль через селектор в боковой панели. */
+/** Сменить роль (демо-режим). Селектор перенесён в свёрнутое меню «Демо-режимы». */
 export async function setRole(page: Page, label: string) {
-  const select = page.locator('aside select')
+  // Раскрыть меню «Демо-режимы (доп. возможность)», если оно свёрнуто.
+  const summary = page.locator('aside details summary', { hasText: 'Демо-режимы' })
+  if (await summary.count()) {
+    const details = page.locator('aside details')
+    const isOpen = await details
+      .evaluate((el) => (el as HTMLDetailsElement).open)
+      .catch(() => false)
+    if (!isOpen) await summary.click()
+  }
+  const select = page.locator('aside details select')
   await select.selectOption({ label })
 }

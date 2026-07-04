@@ -28,9 +28,23 @@ _ROOT = Path(__file__).resolve().parent.parent.parent
 sys.path.insert(0, str(_ROOT))
 sys.path.insert(0, str(_ROOT / "pipeline" / "extract"))
 
-from shared.yandex_client import complete_batch, USAGE  # noqa: E402
+# Completion goes through the multi-provider gateway (yandex / openai_compatible /
+# mock via .env). USAGE is the gateway's cross-provider accumulator (superset of the
+# yandex_client counters, so the progress log is unchanged for LLM_PROVIDER=yandex).
+from shared.llm_gateway import gateway as _gateway, USAGE  # noqa: E402
 import prompts  # noqa: E402
 import normalize as norm  # noqa: E402
+
+
+def complete_batch(tasks, model="lite", json_schema=None, temperature=0.1,
+                   max_tokens=2000, parse_json=True, concurrency=None, on_result=None):
+    """Batch extraction via the gateway (role=extraction). For LLM_PROVIDER=yandex this
+    delegates to the existing completionAsync path in shared/yandex_client.py."""
+    return _gateway.complete_batch(
+        list(tasks), json_schema=json_schema, model_role="extraction",
+        default_model=model, temperature=temperature, max_tokens=max_tokens,
+        parse_json=parse_json, concurrency=concurrency, on_result=on_result,
+    )
 
 CKPT_DB = _ROOT / "pipeline" / "extract" / "extractions.sqlite"
 NODES_OUT = _ROOT / "graph" / "nodes.jsonl"
@@ -536,6 +550,66 @@ def build_graph(use_embedding: bool = True) -> GraphBuilder:
         if isinstance(data, dict):
             gb.process(chunk_id, doc_id, text or "", data)
     gb.write()
+    return gb
+
+
+# --- тонкие обёртки для однодокументной онлайн-экстракции (upload-pipeline) --
+# Не трогают checkpoint-SQLite и глобальные graph/nodes.jsonl|edges.jsonl:
+# работают полностью в памяти на переданном списке чанков и возвращают фрагмент
+# графа для немедленного MERGE в Neo4j. Поведение CLI не меняется.
+
+def extract_payloads(chunks, model="lite", limit=None, on_result=None):
+    """LLM-экстракция для списка чанков В ПАМЯТИ (без записи в extractions.sqlite).
+
+    chunks: list[dict] с ключами chunk_id, doc_id, text, section_title.
+    Возвращает list[dict]: {chunk_id, doc_id, text, section_title, payload, ok, error}.
+    Если ни один LLM-провайдер роли extraction недоступен — все строки ok=0
+    (потребитель трактует стадию как «отложена»)."""
+    todo = list(chunks)[: limit] if limit else list(chunks)
+    if not todo:
+        return []
+    if not _gateway.is_available("extraction", default_model=model):
+        return [{"chunk_id": c["chunk_id"], "doc_id": c["doc_id"], "text": c["text"],
+                 "section_title": c.get("section_title"), "payload": None, "ok": 0,
+                 "error": "no extraction LLM provider available"} for c in todo]
+
+    tasks = [prompts.build_messages(c["text"], c.get("section_title")) for c in todo]
+    results: list = [None] * len(todo)
+
+    def _cb(idx, res):
+        c = todo[idx]
+        if isinstance(res, Exception):
+            row = {"chunk_id": c["chunk_id"], "doc_id": c["doc_id"], "text": c["text"],
+                   "section_title": c.get("section_title"), "payload": None, "ok": 0,
+                   "error": str(res)[:400]}
+        else:
+            payload = (res or {}).get("json")
+            ok = 1 if isinstance(payload, dict) else 0
+            row = {"chunk_id": c["chunk_id"], "doc_id": c["doc_id"], "text": c["text"],
+                   "section_title": c.get("section_title"), "payload": payload, "ok": ok,
+                   "error": None if ok else "json_parse_failed"}
+        results[idx] = row
+        if on_result:
+            on_result(idx, row)
+
+    complete_batch(tasks, model=model, json_schema=prompts.EXTRACTION_SCHEMA,
+                   temperature=0.1, max_tokens=3000, parse_json=True, on_result=_cb)
+    return [r for r in results if r]
+
+
+def build_fragment(extractions, use_embedding=False):
+    """Строит фрагмент графа (GraphBuilder) из результатов extract_payloads,
+    БЕЗ записи в глобальные файлы. Возвращает GraphBuilder (см. .nodes/.edges)."""
+    gb = GraphBuilder(use_embedding=use_embedding)
+    ok_rows = [e for e in extractions if e.get("ok") and isinstance(e.get("payload"), dict)]
+    if use_embedding and ok_rows:
+        gb.prepare_embeddings([(e["chunk_id"], e["doc_id"], e["text"],
+                                json.dumps(e["payload"], ensure_ascii=False)) for e in ok_rows])
+    for e in ok_rows:
+        try:
+            gb.process(e["chunk_id"], e["doc_id"], e.get("text", ""), e["payload"])
+        except Exception:  # noqa: BLE001 — устойчивость к отдельным шумным чанкам
+            pass
     return gb
 
 

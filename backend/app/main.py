@@ -26,11 +26,11 @@ if str(REPO_ROOT) not in sys.path:
 
 from contextlib import asynccontextmanager
 
-from fastapi import Depends, FastAPI, Header, HTTPException, Query
+from fastapi import Depends, FastAPI, File, Header, HTTPException, Query, UploadFile
 from fastapi.middleware.cors import CORSMiddleware
 
 from app import (analytics, auth, db, exporters, observability,
-                 search as search_mod, store)
+                 search as search_mod, store, upload as upload_mod)
 from app.models import (
     AuditLogResponse, CompareResponse, CompareRow, DocumentResponse,
     EdgePatch, EdgePatchResponse, ExpertRef, ExpertsResponse, ExportRequest, ExportResponse,
@@ -45,6 +45,7 @@ observability.configure_logging()
 @asynccontextmanager
 async def _lifespan(app: FastAPI):
     store.init()
+    upload_mod.init()
     yield
 
 
@@ -112,6 +113,33 @@ def api_search(req: SearchRequest, authorization: Optional[str] = Header(None)):
                         "gaps": len(result.get("gaps") or []),
                     })
     return result
+
+
+# ------------------------------------------------------------------ upload (ingest pipeline)
+@app.post("/api/upload")
+async def api_upload(file: UploadFile = File(...),
+                     role: str = Depends(auth.current_role)):
+    """Загрузка одного документа (pdf/docx/pptx/xlsx/…). Возвращает job_id;
+    прогресс стадий — GET /api/upload/{job_id}. Дедуп по sha256."""
+    data = await file.read()
+    if not data:
+        raise HTTPException(status_code=400, detail="empty file")
+    try:
+        res = upload_mod.submit(data, file.filename or "upload.bin")
+    except ValueError as e:
+        raise HTTPException(status_code=415, detail=str(e))
+    store.audit_log(role, "/api/upload", "upload",
+                    params={"filename": file.filename, "doc_id": res["doc_id"],
+                            "cached": res["cached"]})
+    return res
+
+
+@app.get("/api/upload/{job_id}")
+def api_upload_status(job_id: str):
+    job = upload_mod.get_job(job_id)
+    if not job:
+        raise HTTPException(status_code=404, detail=f"job {job_id} not found")
+    return job
 
 
 # ------------------------------------------------------------------ graph

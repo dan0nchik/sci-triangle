@@ -27,6 +27,8 @@ import type {
   Subscription,
   SubscriptionUpdate,
   TokenResponse,
+  UploadJobStatus,
+  UploadStartResponse,
 } from './types'
 import {
   mockAudit,
@@ -44,6 +46,8 @@ import {
   mockSubscriptionCreate,
   mockSubscriptions,
   mockSubscriptionUpdates,
+  mockUploadStart,
+  mockUploadStatus,
 } from './mocks'
 
 // VITE_API_URL semantics:
@@ -102,6 +106,88 @@ async function http<T>(path: string, init?: RequestInit): Promise<T> {
 // ============================================================================
 type AnyObj = Record<string, unknown>
 
+// Синтез retrieval-трассы из ответа, когда бэкенд не прислал retrieval_trace.
+// Форма — по docs/CONTRACT_TRACE.md (когда агент «Answer-Quality» его создаст).
+// Эвристика: лексическая ветка — по числу цитат-чанков; семантическая —
+// по концептам/узлам; графовая — по рёбрам подграфа.
+function deriveTrace(r: SearchResponse): SearchResponse['retrieval_trace'] {
+  const nCit = r.citations.length
+  const nNodes = r.subgraph.nodes.length
+  const nEdges = r.subgraph.edges.length
+  const nConcepts = r.intent.concepts.length
+  return {
+    synthesized: true,
+    fusion: 'RRF (k=60) + скор-гейтинг',
+    total_candidates: nCit + nNodes,
+    branches: [
+      {
+        kind: 'lexical',
+        used: nCit > 0,
+        hits: nCit,
+        note: 'Точное совпадение терминов и чисел в тексте чанков (ES bool+range).',
+      },
+      {
+        kind: 'semantic',
+        used: nConcepts > 0 || nNodes > 0,
+        hits: nNodes,
+        note: 'Близкие по смыслу сущности через эмбеддинги (кросс-язычно, RU/EN).',
+      },
+      {
+        kind: 'graph',
+        used: nEdges > 0,
+        hits: nEdges,
+        note: 'Обход графа знаний от концептов-якорей к связанным узлам и документам.',
+      },
+    ],
+  }
+}
+
+// Нормализация retrieval_trace, пришедшей от бэкенда (агент Answer-Quality), к
+// строгому shape. Реальная форма: branches[{name, method, n_candidates,
+// n_passed_gate, top_signals, active?}]. Приводим к 3 каноническим веткам
+// (лексическая/семантическая/графовая), доп. ветки (doc-name) сворачиваем в
+// лексическую и дедуплицируем по kind.
+function adaptTrace(raw: unknown): SearchResponse['retrieval_trace'] | undefined {
+  if (!raw || typeof raw !== 'object') return undefined
+  const o = raw as AnyObj
+  const rawBranches = (o.branches ?? []) as AnyObj[]
+  if (!Array.isArray(rawBranches) || rawBranches.length === 0) return undefined
+  const KIND: Record<string, 'lexical' | 'semantic' | 'graph'> = {
+    lexical: 'lexical', bm25: 'lexical', keyword: 'lexical', es: 'lexical', text: 'lexical',
+    'doc-name': 'lexical', docname: 'lexical', title: 'lexical',
+    semantic: 'semantic', vector: 'semantic', embedding: 'semantic', dense: 'semantic', cosine: 'semantic',
+    graph: 'graph', cypher: 'graph', neo4j: 'graph', anchor: 'graph', concept: 'graph',
+  }
+  // Порядок канонических веток для стабильного отображения.
+  const ORDER: Record<string, number> = { lexical: 0, semantic: 1, graph: 2 }
+  const merged = new Map<string, { kind: 'lexical' | 'semantic' | 'graph'; hits: number; used: boolean; note?: string }>()
+  for (const b of rawBranches) {
+    const kind = KIND[String(b.name ?? b.kind ?? b.type ?? '').toLowerCase()] ?? 'lexical'
+    const hits = Number(b.n_passed_gate ?? b.hits ?? b.n ?? b.n_candidates ?? 0)
+    const active = b.active === false ? false : hits > 0 || Boolean(b.used)
+    const note = (b.method ?? b.note) != null ? String(b.method ?? b.note) : undefined
+    const prev = merged.get(kind)
+    if (prev) {
+      prev.hits += hits
+      prev.used = prev.used || active
+    } else {
+      merged.set(kind, { kind, hits, used: active, note })
+    }
+  }
+  const branches = Array.from(merged.values())
+    .sort((a, b) => (ORDER[a.kind] ?? 9) - (ORDER[b.kind] ?? 9))
+    .map((b) => ({ kind: b.kind, hits: b.hits, used: b.used, note: b.note }))
+  return {
+    synthesized: false,
+    fusion: o.fusion != null ? String(o.fusion) : 'RRF (k=60) + скор-гейтинг',
+    total_candidates:
+      o.total_candidates != null
+        ? Number(o.total_candidates)
+        : branches.reduce((s, b) => s + (b.hits || 0), 0),
+    branches,
+  }
+}
+
 function adaptSearch(raw: AnyObj): SearchResponse {
   const rawIntent = (raw.intent ?? {}) as AnyObj
   const concepts = Array.isArray(rawIntent.concepts)
@@ -131,7 +217,7 @@ function adaptSearch(raw: AnyObj): SearchResponse {
       : (g as KnowledgeGap),
   )
 
-  return {
+  const out: SearchResponse = {
     answer_md: String(raw.answer_md ?? ''),
     intent: {
       type: intentType,
@@ -149,6 +235,9 @@ function adaptSearch(raw: AnyObj): SearchResponse {
     took_ms: Number(raw.took_ms ?? 0),
     search_id: String(raw.search_id ?? ''),
   }
+  // Объяснимость: берём trace от бэкенда, иначе синтезируем из ответа.
+  out.retrieval_trace = adaptTrace(raw.retrieval_trace) ?? deriveTrace(out)
+  return out
 }
 
 function bucketsFromDict(
@@ -399,6 +488,26 @@ export const api = {
       // RBAC ещё не задеплоен — демо-токен локально
       return mockAuthToken(role)
     }
+  },
+
+  // ---- Загрузка документа (docs/CONTRACT_UPLOAD.md) ---------------------------
+  // POST /api/upload — multipart/form-data (поле file), без Content-Type: json.
+  async upload(file: File): Promise<UploadStartResponse> {
+    if (isMockMode) return mockUploadStart(file)
+    const fd = new FormData()
+    fd.append('file', file)
+    const res = await fetch(`${API_URL}/api/upload`, { method: 'POST', body: fd })
+    if (!res.ok) {
+      const body = await res.text().catch(() => '')
+      throw new ApiError(res.status, `API ${res.status} ${res.statusText}${body ? `: ${body}` : ''}`)
+    }
+    return res.json() as Promise<UploadStartResponse>
+  },
+
+  // GET /api/upload/{job_id} — поллинг каждые ~1 с до done/failed.
+  async uploadStatus(job_id: string): Promise<UploadJobStatus> {
+    if (isMockMode) return mockUploadStatus(job_id)
+    return http<UploadJobStatus>(`/api/upload/${encodeURIComponent(job_id)}`)
   },
 
   // ---- Ручная правка графа (D10) --------------------------------------------

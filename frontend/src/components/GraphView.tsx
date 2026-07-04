@@ -42,7 +42,7 @@ const STYLE: cytoscape.StylesheetStyle[] = [
     style: {
       'background-color': 'data(color)',
       label: 'data(label)',
-      color: '#e2e8f0',
+      color: '#33414E',
       'font-size': 9,
       'text-valign': 'bottom',
       'text-halign': 'center',
@@ -50,7 +50,7 @@ const STYLE: cytoscape.StylesheetStyle[] = [
       width: 26,
       height: 26,
       'border-width': 1.5,
-      'border-color': '#0b0f14',
+      'border-color': '#FFFFFF',
       'text-wrap': 'wrap',
       'text-max-width': '90px',
     },
@@ -66,8 +66,8 @@ const STYLE: cytoscape.StylesheetStyle[] = [
     selector: 'edge',
     style: {
       width: 1.4,
-      'line-color': '#37485a',
-      'target-arrow-color': '#37485a',
+      'line-color': '#B4C0CD',
+      'target-arrow-color': '#B4C0CD',
       'target-arrow-shape': 'triangle',
       'arrow-scale': 0.7,
       'curve-style': 'bezier',
@@ -77,9 +77,9 @@ const STYLE: cytoscape.StylesheetStyle[] = [
   {
     selector: 'edge[contradicts = 1]',
     style: {
-      'line-color': '#f43f5e',
-      'target-arrow-color': '#f43f5e',
-      'source-arrow-color': '#f43f5e',
+      'line-color': '#E03131',
+      'target-arrow-color': '#E03131',
+      'source-arrow-color': '#E03131',
       'source-arrow-shape': 'triangle',
       'line-style': 'dashed',
       width: 2.2,
@@ -88,23 +88,23 @@ const STYLE: cytoscape.StylesheetStyle[] = [
   },
   {
     selector: 'edge[manual = 1]',
-    style: { 'line-color': '#22d3ee', 'line-style': 'dotted', width: 2 },
+    style: { 'line-color': '#0E9AA7', 'line-style': 'dotted', width: 2 },
   },
   {
     selector: '.dim',
-    style: { opacity: 0.12 },
+    style: { opacity: 0.15 },
   },
   {
     selector: '.chain',
-    style: { 'border-color': '#3ea6ff', 'border-width': 3, opacity: 1 },
+    style: { 'border-color': '#0077C8', 'border-width': 3, opacity: 1 },
   },
   {
     selector: 'edge.chain',
-    style: { 'line-color': '#3ea6ff', 'target-arrow-color': '#3ea6ff', width: 2.6, opacity: 1 },
+    style: { 'line-color': '#0077C8', 'target-arrow-color': '#0077C8', width: 2.6, opacity: 1 },
   },
   {
     selector: 'node:selected',
-    style: { 'border-color': '#ffffff', 'border-width': 3 },
+    style: { 'border-color': '#004C97', 'border-width': 3 },
   },
 ]
 

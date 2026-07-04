@@ -1,6 +1,7 @@
 import type { Citation } from '../api/types'
 import { ConfidenceBadge } from './ConfidenceBadge'
 import { useApp } from '../store'
+import { hasVerifiableNumber, highlightNumbers } from '../lib/highlight'
 
 const GEO_LABEL: Record<string, string> = { RU: 'Россия', foreign: 'Зарубеж', global: 'Мир' }
 const TYPE_LABEL: Record<string, string> = {
@@ -20,6 +21,7 @@ export function SourceDrawer({
 }) {
   const { openDoc } = useApp()
   const open = !!citation
+  const hasNums = citation ? hasVerifiableNumber(citation.quote) : false
   return (
     <>
       <div
@@ -40,36 +42,36 @@ export function SourceDrawer({
                 <span className="chip bg-accent-dim/50 text-accent-soft">Источник [{index}]</span>
                 <ConfidenceBadge level={citation.confidence} />
               </div>
-              <button onClick={onClose} className="text-slate-500 hover:text-white text-xl leading-none">
+              <button onClick={onClose} className="text-fg-muted hover:text-fg text-xl leading-none">
                 ×
               </button>
             </div>
 
             <div className="flex-1 overflow-y-auto px-5 py-4 space-y-4">
               <div>
-                <h3 className="text-white font-semibold leading-snug">{citation.title}</h3>
+                <h3 className="text-fg font-semibold leading-snug">{citation.title}</h3>
                 <div className="mt-2 flex flex-wrap gap-1.5 text-xs">
-                  <span className="chip bg-ink-700 text-slate-300">{citation.year} г.</span>
+                  <span className="chip bg-ink-700 text-fg-body">{citation.year} г.</span>
                   {citation.source_type && (
-                    <span className="chip bg-ink-700 text-slate-300">
+                    <span className="chip bg-ink-700 text-fg-body">
                       {TYPE_LABEL[citation.source_type] ?? citation.source_type}
                     </span>
                   )}
                   {citation.section && (
-                    <span className="chip bg-ink-700 text-slate-300">{citation.section}</span>
+                    <span className="chip bg-ink-700 text-fg-body">{citation.section}</span>
                   )}
                   {citation.geography && (
-                    <span className="chip bg-ink-700 text-slate-300">
+                    <span className="chip bg-ink-700 text-fg-body">
                       {GEO_LABEL[citation.geography] ?? citation.geography}
                     </span>
                   )}
                   {citation.journal && (
-                    <span className="chip bg-ink-700 text-slate-300">{citation.journal}</span>
+                    <span className="chip bg-ink-700 text-fg-body">{citation.journal}</span>
                   )}
                 </div>
               </div>
 
-              <div className="text-xs text-slate-500 font-mono space-y-0.5">
+              <div className="text-xs text-fg-muted font-mono space-y-0.5">
                 <div>doc_id: {citation.doc_id}</div>
                 <div>chunk_id: {citation.chunk_id}</div>
                 {citation.page_from != null && (
@@ -83,12 +85,22 @@ export function SourceDrawer({
               </div>
 
               <div>
-                <div className="text-[11px] uppercase tracking-wide text-slate-500 mb-1.5">
+                <div className="text-[11px] uppercase tracking-wide text-fg-muted mb-1.5 flex items-center gap-2">
                   Дословный фрагмент-основание
+                  {hasNums && (
+                    <span className="chip bg-amber-500/15 text-amber-700 text-[10px]">
+                      числа подсвечены
+                    </span>
+                  )}
                 </div>
-                <blockquote className="border-l-2 border-accent pl-3 py-1 text-slate-200 leading-relaxed bg-ink-800 rounded-r-lg">
-                  «{citation.quote}»
+                <blockquote className="border-l-2 border-accent pl-3 py-1 text-fg-body leading-relaxed bg-ink-800 rounded-r-lg">
+                  «{highlightNumbers(citation.quote)}»
                 </blockquote>
+                {hasNums && (
+                  <p className="mt-1.5 text-[11px] text-fg-muted">
+                    Сверьте выделенные значения с числами в ответе — они взяты из этого фрагмента дословно.
+                  </p>
+                )}
               </div>
             </div>
 
@@ -100,10 +112,10 @@ export function SourceDrawer({
                 }}
                 className="btn-accent w-full justify-center"
               >
-                📄 Открыть полную карточку документа
+                🔎 Проверить в источнике
               </button>
-              <p className="text-[11px] text-slate-500">
-                Провенанс верифицирован: число присутствует в источнике дословно (rule-first).
+              <p className="text-[11px] text-fg-muted">
+                Откроет полную карточку документа и проскроллит к выделенному числу в исходном фрагменте (rule-first провенанс).
               </p>
             </div>
           </div>

@@ -1,12 +1,21 @@
 import { test, expect } from '@playwright/test'
 import { setRole } from './helpers'
 
-test.describe('Роли (RBAC-демо)', () => {
-  test('external_partner → плашка ограничений (внутр. разделы скрыты)', async ({ page }) => {
+test.describe('Демо-режимы (де-акцентированные роли)', () => {
+  test('переключатель ролей убран в свёрнутое меню «Демо-режимы»', async ({ page }) => {
+    await page.goto('/')
+    // на видном месте селектора ролей нет — он спрятан в details
+    await expect(page.locator('aside > .px-4 > select')).toHaveCount(0)
+    // меню помечено как доп. возможность
+    await expect(page.getByText('Демо-режимы')).toBeVisible()
+    await expect(page.getByText('(доп. возможность)')).toBeVisible()
+  })
+
+  test('external_partner → мягкая плашка «открытые источники»', async ({ page }) => {
     await page.goto('/')
     await setRole(page, 'Внешний партнёр')
-    // плашка ограничения доступа в боковой панели
-    await expect(page.getByText('внутр. разделы скрыты')).toBeVisible({ timeout: 15_000 })
+    // мягкий индикатор ограничения доступа в меню демо-режимов
+    await expect(page.getByText('открытые источники')).toBeVisible({ timeout: 15_000 })
   })
 
   test('project_lead → доступна правка графа (кнопки/режим)', async ({ page }) => {
@@ -27,9 +36,9 @@ test.describe('Роли (RBAC-демо)', () => {
     await page.getByRole('button', { name: /^Найти$/ }).isVisible()
     const examples = page.locator('button.chip', { hasText: /Циркуляция/ })
     await examples.first().click()
-    // ждём либо ответ, либо плашку об ограничении прав
+    // ждём либо ответ, либо мягкую плашку об ограничении выдачи
     await expect(
-      page.getByText(/интент:|Недостаточно прав/).first(),
+      page.getByText(/интент:|только открытые источники/).first(),
     ).toBeVisible({ timeout: 75_000 })
   })
 })

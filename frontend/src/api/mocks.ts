@@ -23,6 +23,10 @@ import type {
   Subscription,
   SubscriptionUpdate,
   TokenResponse,
+  UploadJobStatus,
+  UploadResult,
+  UploadStage,
+  UploadStartResponse,
 } from './types'
 
 // --- общие переиспользуемые узлы -------------------------------------------
@@ -512,10 +516,28 @@ function pickPacket(query: string): SearchResponse {
 // --- Публичный API мок-слоя --------------------------------------------------
 const delay = (ms: number) => new Promise((r) => setTimeout(r, ms))
 
+// Демо-трасса извлечения (объяснимость «как получен ответ»): собрана из подграфа.
+function traceFor(r: SearchResponse): SearchResponse['retrieval_trace'] {
+  const nCit = r.citations.length
+  const nNodes = r.subgraph.nodes.length
+  const nEdges = r.subgraph.edges.length
+  return {
+    synthesized: false,
+    fusion: 'RRF (k=60) + скор-гейтинг',
+    total_candidates: nCit + nNodes,
+    branches: [
+      { kind: 'lexical', used: nCit > 0, hits: nCit, note: 'Точное совпадение терминов и чисел в тексте чанков (ES bool+range).' },
+      { kind: 'semantic', used: nNodes > 0, hits: nNodes, note: 'Близкие по смыслу сущности через эмбеддинги (кросс-язычно, RU/EN).' },
+      { kind: 'graph', used: nEdges > 0, hits: nEdges, note: 'Обход графа знаний от концептов-якорей к связанным узлам и документам.' },
+    ],
+  }
+}
+
 export async function mockSearch(req: SearchRequest): Promise<SearchResponse> {
   // Ответ может идти до 5 с — имитируем 2.2–4 с
   await delay(2200 + Math.random() * 1800)
-  const base = pickPacket(req.query)
+  const picked = pickPacket(req.query)
+  const base: SearchResponse = { ...picked, retrieval_trace: traceFor(picked) }
   // Применим фильтр порога достоверности к цитатам (демо ABAC/фильтрации)
   const cmin = req.filters?.confidence_min
   if (cmin && cmin > 0) {
@@ -790,4 +812,82 @@ export async function mockExperts(topic: string): Promise<ExpertSummary[]> {
   if (/(вод|осмос|обессол|сульфат)/.test(t)) return experts_water
   if (/(мпг|штейн|шлак|платин|золот|серебр)/.test(t)) return experts_pgm
   return experts_electro
+}
+
+// --- Загрузка документа (docs/CONTRACT_UPLOAD.md) — демо-прогон стадий -------
+// Каждый job живёт по времени: стадии сменяются каждые ~900 мс; embedding
+// помечается skipped (нет эмбеддинг-бэкенда в demo), остальное — ok.
+const UPLOAD_STAGE_TIMELINE: { stage: UploadStage; progress: number; detail: string }[] = [
+  { stage: 'queued', progress: 0, detail: 'Задача принята, поток запускается…' },
+  { stage: 'extracting_text', progress: 0.1, detail: 'Извлечение текста (PyMuPDF/OCR)…' },
+  { stage: 'chunking', progress: 0.3, detail: 'Нарезка на чанки (≤1200 токенов, overlap)…' },
+  { stage: 'embedding', progress: 0.45, detail: 'Эмбеддинги чанков (best-effort)…' },
+  { stage: 'indexing', progress: 0.6, detail: 'Индексация в Elasticsearch — документ уже ищется…' },
+  { stage: 'extracting_knowledge', progress: 0.75, detail: 'LLM-извлечение сущностей/фактов/связей…' },
+  { stage: 'merging_graph', progress: 0.9, detail: 'Объединение фрагмента с общим графом (Neo4j MERGE)…' },
+  { stage: 'done', progress: 1, detail: 'Готово: документ в поиске и в графе знаний.' },
+]
+const MOCK_UPLOAD_STEP_MS = 900
+const mockUploadJobs = new Map<string, { startedAt: number; filename: string; doc_id: string }>()
+
+function mockUploadResult(doc_id: string, filename: string): UploadResult {
+  const pubId = `pub:${doc_id}`
+  const nodes: GraphNode[] = [
+    { id: pubId, type: 'Publication', name: filename.replace(/\.[a-z0-9]+$/i, ''), confidence: 0.99, props: { doc_id, uploaded: true, section: 'Загруженные документы' } },
+    N.nickel,
+    { id: 'proc:electrowinning_ni', type: 'Process', name: 'электроэкстракция никеля', props: { domain: 'hydro' }, confidence: 0.9 },
+    { id: 'cond:temp_65', type: 'Condition', name: 'температура = 65 °C', props: { param: 'температура', op: '=', value: 65, unit: '°C' }, confidence: 0.85 },
+    { id: 'param:current_density', type: 'Parameter', name: 'плотность тока', props: { unit_canonical: 'А/м²' }, confidence: 0.88 },
+  ]
+  const edges: GraphEdge[] = [
+    { src: 'mat:nickel', dst: pubId, type: 'described_in', confidence: 0.9, method: 'llm' },
+    { src: 'proc:electrowinning_ni', dst: pubId, type: 'described_in', confidence: 0.9, method: 'llm' },
+    { src: 'proc:electrowinning_ni', dst: 'cond:temp_65', type: 'operates_at_condition', confidence: 0.85, method: 'rule' },
+    { src: 'proc:electrowinning_ni', dst: 'mat:nickel', type: 'produces_output', confidence: 0.9, method: 'llm' },
+  ]
+  return {
+    doc_id,
+    n_chunks: 12,
+    n_entities: nodes.length - 1,
+    n_edges: edges.length,
+    extraction_deferred: false,
+    graph_preview: { nodes, edges },
+    stages: {
+      extracting_text: { status: 'ok', detail: '2 страницы, pymupdf', took_ms: 70 },
+      chunking: { status: 'ok', detail: '12 чанков', took_ms: 26 },
+      embedding: { status: 'skipped', detail: 'эмбеддинг-бэкенд недоступен в demo — документ ищется full-text', took_ms: 5 },
+      indexing: { status: 'ok', detail: '12 чанков в ES', took_ms: 78 },
+      extracting_knowledge: { status: 'ok', detail: 'извлечено из 12/12 чанков', took_ms: 1400 },
+      merging_graph: { status: 'ok', detail: '5 узлов, 4 ребра', took_ms: 90 },
+    },
+  }
+}
+
+export async function mockUploadStart(file: File): Promise<UploadStartResponse> {
+  await delay(300)
+  const job_id = 'job_mock_' + Math.random().toString(36).slice(2, 10)
+  const doc_id = 'up_mock_' + Math.random().toString(36).slice(2, 10)
+  mockUploadJobs.set(job_id, { startedAt: Date.now(), filename: file.name, doc_id })
+  return { job_id, doc_id, cached: false, stage: 'queued' }
+}
+
+export async function mockUploadStatus(job_id: string): Promise<UploadJobStatus> {
+  await delay(120)
+  const job = mockUploadJobs.get(job_id)
+  if (!job) throw new Error('unknown upload job (mock)')
+  const step = Math.min(
+    Math.floor((Date.now() - job.startedAt) / MOCK_UPLOAD_STEP_MS),
+    UPLOAD_STAGE_TIMELINE.length - 1,
+  )
+  const cur = UPLOAD_STAGE_TIMELINE[step]
+  return {
+    job_id,
+    doc_id: job.doc_id,
+    filename: job.filename,
+    stage: cur.stage,
+    progress: cur.progress,
+    detail: cur.detail,
+    error: null,
+    result: cur.stage === 'done' ? mockUploadResult(job.doc_id, job.filename) : null,
+  }
 }

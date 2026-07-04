@@ -100,6 +100,37 @@ class Contradiction(BaseModel):
     b_statement: Optional[str] = None
 
 
+# retrieval_trace — explainability panel (docs/CONTRACT_TRACE.md). Branch/gate sub-objects
+# use extra="allow" so search.py can enrich fields (active flag, metrics) without a schema
+# bump; the top-level shape is fixed for the frontend adapter.
+class TraceBranch(BaseModel):
+    model_config = {"extra": "allow"}
+    name: str
+    method: Optional[str] = None
+    n_candidates: Optional[int] = None
+    n_passed_gate: Optional[int] = None
+    top_signals: List[Dict[str, Any]] = Field(default_factory=list)
+
+
+class TraceConcept(BaseModel):
+    concept_id: Optional[str] = None
+    name: str
+    matched_from: str = "запрос"
+
+
+class TraceGate(BaseModel):
+    model_config = {"extra": "allow"}
+    passed: bool = False
+    reason: str = ""
+
+
+class RetrievalTrace(BaseModel):
+    branches: List[TraceBranch] = Field(default_factory=list)
+    concepts_matched: List[TraceConcept] = Field(default_factory=list)
+    gate: TraceGate = Field(default_factory=TraceGate)
+    docs_considered: int = 0
+
+
 class SearchResponse(BaseModel):
     answer_md: str
     intent: Intent = Field(default_factory=Intent)
@@ -109,6 +140,7 @@ class SearchResponse(BaseModel):
     contradictions: List[Contradiction] = Field(default_factory=list)
     gaps: List[KnowledgeGap] = Field(default_factory=list)
     confidence_summary: ConfidenceSummary = Field(default_factory=ConfidenceSummary)
+    retrieval_trace: Optional[RetrievalTrace] = None
     took_ms: int = 0
     search_id: str = ""
 
