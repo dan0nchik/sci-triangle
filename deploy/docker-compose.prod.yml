@@ -63,6 +63,37 @@ services:
     mem_limit: 2560m
     restart: unless-stopped
 
+  # Query-side embedding sidecar (CPU). Serves Qwen/Qwen3-Embedding-0.6B on the
+  # internal compose network at http://embed:1171. The api reaches it via
+  # EMBED_LOCAL_URL=http://embed:1171 (set in .env) for the semantic branch of
+  # retrieval. Model (~1.2 GB) is fetched from HuggingFace on first start into the
+  # hf_cache volume (hence the long healthcheck start_period). Not published.
+  embed:
+    build:
+      context: embed_service
+      dockerfile: Dockerfile
+    image: sci-tangle-embed:latest
+    container_name: sci-tangle-embed
+    environment:
+      EMBED_DEVICE: "cpu"
+      EMBED_MODEL: "${EMBED_MODEL:-Qwen/Qwen3-Embedding-0.6B}"
+      EMBED_PREFIX: "qwen"
+      EMBED_PORT: "1171"
+      EMBED_BATCH: "${EMBED_BATCH:-8}"
+      EMBED_MAX_SEQ: "${EMBED_MAX_SEQ:-1024}"
+      HF_HOME: "/root/.cache/huggingface"
+      OMP_NUM_THREADS: "${EMBED_THREADS:-4}"
+    volumes:
+      - hf_cache:/root/.cache/huggingface
+    healthcheck:
+      test: ["CMD-SHELL", "curl -sf http://localhost:1171/health | grep -q '\"status\": *\"ok\"' || exit 1"]
+      interval: 15s
+      timeout: 10s
+      retries: 10
+      start_period: 600s
+    mem_limit: 2g
+    restart: unless-stopped
+
   api:
     build:
       context: ..
@@ -154,6 +185,7 @@ services:
     restart: unless-stopped
 
 volumes:
+  hf_cache:
   caddy_data:
   caddy_config:
   uploads_data:
