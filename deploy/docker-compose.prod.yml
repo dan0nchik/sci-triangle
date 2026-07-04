@@ -16,8 +16,13 @@ services:
       NEO4J_dbms_security_procedures_unrestricted: "apoc.*"
       NEO4J_dbms_security_procedures_allowlist: "apoc.*"
       NEO4J_server_memory_heap_initial__size: "1G"
-      NEO4J_server_memory_heap_max__size: "2G"
+      NEO4J_server_memory_heap_max__size: "1500m"
       NEO4J_server_memory_pagecache_size: "512M"
+    # Bound to localhost so host-side pipeline venvs (loader / precompute /
+    # ingest) can reach the store; NOT exposed publicly.
+    ports:
+      - "127.0.0.1:7474:7474"
+      - "127.0.0.1:7687:7687"
     volumes:
       - neo4j_data:/data
       - neo4j_logs:/logs
@@ -38,12 +43,15 @@ services:
       discovery.type: single-node
       xpack.security.enabled: "false"
       xpack.security.http.ssl.enabled: "false"
-      ES_JAVA_OPTS: "-Xms1g -Xmx2g"
+      ES_JAVA_OPTS: "-Xms1500m -Xmx1500m"
       bootstrap.memory_lock: "true"
     ulimits:
       memlock:
         soft: -1
         hard: -1
+    # Bound to localhost for host-side loaders/indexers; NOT exposed publicly.
+    ports:
+      - "127.0.0.1:9200:9200"
     volumes:
       - es_data:/usr/share/elasticsearch/data
     healthcheck:
@@ -70,6 +78,13 @@ services:
       YANDEX_FOLDER_ID: "${YANDEX_FOLDER_ID:-}"
       OCR_API_URL: "${OCR_API_URL:-}"
       RU_PROXY: "${RU_PROXY:-}"
+    # Data artifacts are NOT baked into the image (code-only). Mount the
+    # repo's corpus/ and graph/ read-only so runtime paths resolve
+    # (chunk vectors: /graph/embeddings, analytics: /corpus/documents.jsonl)
+    # and loaders can be run via `docker compose exec api`.
+    volumes:
+      - ../corpus:/corpus:ro
+      - ../graph:/graph:ro
     depends_on:
       neo4j:
         condition: service_healthy

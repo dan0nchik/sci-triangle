@@ -46,9 +46,18 @@ import {
   mockSubscriptionUpdates,
 } from './mocks'
 
-const API_URL = (import.meta.env.VITE_API_URL as string | undefined)?.replace(/\/$/, '')
+// VITE_API_URL semantics:
+//   unset / ""  → mock mode (dev without a backend; uses mocks.ts)
+//   "/"         → live mode, RELATIVE base — calls hit /api/... on the same
+//                 origin (prod behind the nginx reverse-proxy; image is
+//                 domain/IP-independent). API_URL collapses to '' after the
+//                 trailing-slash strip, so fetch(`${API_URL}/api/...`) == '/api/...'.
+//   "http://x"  → live mode, absolute base (local dev pointing at :8000).
+const RAW_API_URL = import.meta.env.VITE_API_URL as string | undefined
+const API_URL = (RAW_API_URL ?? '').replace(/\/$/, '')
 
-export const isMockMode = !API_URL
+// Mock mode only when VITE_API_URL is unset or empty — a bare "/" is live.
+export const isMockMode = RAW_API_URL == null || RAW_API_URL === ''
 
 // ---- JWT-токен (RBAC-демо): выставляется store при получении токена ----------
 let authToken: string | null = null
@@ -239,7 +248,7 @@ function nameFromId(id: string): string {
 // ============================================================================
 export const api = {
   mode: isMockMode ? ('mock' as const) : ('live' as const),
-  baseUrl: API_URL ?? null,
+  baseUrl: isMockMode ? null : API_URL || '/',
 
   async search(req: SearchRequest): Promise<SearchResponse> {
     if (isMockMode) return mockSearch(req)

@@ -1,0 +1,55 @@
+name: Deploy
+
+# Auto-deploy the production stack on every push to main.
+# Data (corpus/graph/volumes) lives on the server and is NOT touched here —
+# only code is pulled and the images are rebuilt.
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+concurrency:
+  group: deploy-main
+  cancel-in-progress: false
+
+jobs:
+  deploy:
+    name: SSH deploy to VPS
+    runs-on: ubuntu-latest
+    steps:
+      - name: Configure SSH
+        run: |
+          mkdir -p ~/.ssh
+          echo "${{ secrets.DEPLOY_SSH_KEY }}" > ~/.ssh/deploy_key
+          chmod 600 ~/.ssh/deploy_key
+          ssh-keyscan -H "${{ secrets.DEPLOY_HOST }}" >> ~/.ssh/known_hosts 2>/dev/null
+
+      - name: Deploy over SSH
+        env:
+          DEPLOY_HOST: ${{ secrets.DEPLOY_HOST }}
+          DEPLOY_USER: ${{ secrets.DEPLOY_USER }}
+        run: |
+          ssh -i ~/.ssh/deploy_key "${DEPLOY_USER}@${DEPLOY_HOST}" bash -s <<'EOSSH'
+          set -euo pipefail
+          cd /opt/sci-tangle
+          echo "==> git pull"
+          git fetch --all --prune
+          git reset --hard origin/main
+          echo "==> build + up (data volumes untouched)"
+          docker compose -f deploy/docker-compose.prod.yml up -d --build --remove-orphans
+          docker image prune -f >/dev/null 2>&1 || true
+          echo "==> status"
+          docker compose -f deploy/docker-compose.prod.yml ps
+          EOSSH
+
+      - name: Smoke check /api/health
+        env:
+          DEPLOY_HOST: ${{ secrets.DEPLOY_HOST }}
+        run: |
+          for i in $(seq 1 30); do
+            if curl -fsS "http://${DEPLOY_HOST}/api/health" >/dev/null; then
+              echo "health OK"; curl -s "http://${DEPLOY_HOST}/api/health"; exit 0
+            fi
+            echo "waiting for api... ($i)"; sleep 5
+          done
+          echo "health check failed"; exit 1
