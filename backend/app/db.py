@@ -113,11 +113,25 @@ def _rel_dict(r) -> Dict[str, Any]:
 
 
 def overview(limit: int = 300) -> Dict[str, Any]:
+    # Якоря обзора — самые связные концептные узлы. Листовые Measurement/
+    # Condition исключены: после массовой экстракции их большинство в порядке
+    # хранения, и «первые N рёбер» вытесняли Process/Material из выборки
+    # (ломался и обзорный граф, и автокомплит сравнения технологий).
+    q = """
+    MATCH (a:Entity)
+    WHERE a.type IS NULL OR NOT a.type IN ['Measurement', 'Condition']
+    WITH a, COUNT { (a)--() } AS deg
+    ORDER BY deg DESC LIMIT $lim
+    WITH collect(a) AS anchors
+    UNWIND anchors AS a
+    MATCH (a)-[r]->(b:Entity)
+    WHERE b IN anchors
+    RETURN a, r, b
+    """
     nodes: Dict[str, Dict] = {}
     edges: Dict[str, Dict] = {}
     with driver().session() as s:
-        for rec in s.run("MATCH (a:Entity)-[r]->(b:Entity) RETURN a,r,b LIMIT $lim",
-                         lim=limit):
+        for rec in s.run(q, lim=limit):
             for key in ("a", "b"):
                 d = _node_dict(dict(rec[key]))
                 nodes[d["id"]] = d

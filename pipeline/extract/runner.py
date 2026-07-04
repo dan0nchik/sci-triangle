@@ -151,6 +151,40 @@ def _doc_sections() -> dict[str, str]:
     return out
 
 
+def _priority_doc_ids() -> set[str]:
+    """doc_id документов приоритетной экстракции (--priority-only):
+      section in (Обзоры, Статьи, Доклады)
+      | (Журналы AND year>=2015)
+      | (Материалы конференций AND source_type != market_report).
+    market_report (CRU/GFMS/Mitsui сводки) исключаются из LLM-экстракции —
+    в полнотекстовом поиске и как Publication-узлы они остаются."""
+    docs = _ROOT / "corpus" / "documents.jsonl"
+    out: set[str] = set()
+    if not docs.exists():
+        return out
+    for l in docs.read_text(encoding="utf-8").splitlines():
+        if not l.strip():
+            continue
+        try:
+            d = json.loads(l)
+        except Exception:
+            continue
+        s, st, y = d.get("section", ""), d.get("source_type", ""), d.get("year")
+        ok = False
+        if s in ("Обзоры", "Статьи", "Доклады"):
+            ok = True
+        elif s == "Журналы":
+            try:
+                ok = y is not None and int(y) >= 2015
+            except (TypeError, ValueError):
+                ok = False
+        elif s == "Материалы конференций":
+            ok = st != "market_report"
+        if ok:
+            out.add(d["doc_id"])
+    return out
+
+
 def prioritize(chunks: list[dict]) -> list[dict]:
     sec = _doc_sections()
     return sorted(
@@ -162,12 +196,21 @@ def prioritize(chunks: list[dict]) -> list[dict]:
 
 # --- фаза 1: LLM-экстракция -------------------------------------------------
 def run_extraction(input_path: Path, limit: int | None, batch_size: int, model: str,
-                   retry_failed: bool = False):
+                   retry_failed: bool = False, priority_only: bool = False,
+                   max_tokens: int = 3000, boost_tokens: int = 8000):
     conn = _ckpt_conn()
     done = _done_ids(conn)            # ok=1 — действительно готово
     failed = _failed_ids(conn)        # ok=0 — подлежат ретраю
+    # чанки, чей ПРЕДЫДУЩИЙ фейл — обрезанный/невалидный JSON: им поднимаем
+    # max_tokens до boost_tokens, чтобы убрать churn перепопыток на длинном выводе
+    boost_ids = {r[0] for r in conn.execute(
+        "SELECT chunk_id FROM extractions WHERE ok=0 AND "
+        "(error LIKE '%json_parse%' OR error LIKE '%schema_invalid%')").fetchall()}
     chunks = prioritize(load_chunks(input_path))
     todo = [c for c in chunks if c["chunk_id"] not in done]
+    if priority_only:
+        pdocs = _priority_doc_ids()
+        todo = [c for c in todo if c["doc_id"] in pdocs]
     if retry_failed:
         # режим переобработки: только ранее упавшие чанки (не начинаем новые)
         todo = [c for c in todo if c["chunk_id"] in failed]
@@ -175,59 +218,70 @@ def run_extraction(input_path: Path, limit: int | None, batch_size: int, model: 
     todo.sort(key=lambda c: 0 if c["chunk_id"] in failed else 1)
     if limit:
         todo = todo[:limit]
+    n_boost = sum(1 for c in todo if c["chunk_id"] in boost_ids)
     print(f"[extract] всего чанков: {len(chunks)} | готово(ok=1): {len(done)} | "
-          f"упало(ok=0): {len(failed)} | к обработке: {len(todo)}"
-          f"{' [retry-failed]' if retry_failed else ''}")
+          f"упало(ok=0): {len(failed)} | к обработке: {len(todo)} "
+          f"(boost {boost_tokens}tok: {n_boost})"
+          f"{' [retry-failed]' if retry_failed else ''}"
+          f"{' [priority-only]' if priority_only else ''}")
     if not todo:
         return
 
     import threading
     db_lock = threading.Lock()
     t0 = time.time()
-    processed = 0
-    counters = {"ok": 0, "fail": 0}
-    for i in range(0, len(todo), batch_size):
-        batch = todo[i : i + batch_size]
-        tasks = [
-            prompts.build_messages(c["text"], c.get("section_title")) for c in batch
-        ]
+    state = {"processed": 0, "ok": 0, "fail": 0}
 
-        def _save(idx, result):
-            c = batch[idx]
-            if isinstance(result, Exception):
-                # API-ошибка (сеть/4xx/5xx) — НЕ считаем обработанным (ok=0 -> ретрай)
-                row = (c["chunk_id"], c["doc_id"], c.get("section_title"), c["text"],
-                       None, 0, str(result)[:400], time.time())
-            else:
-                payload = result.get("json")
-                # ok=1 ТОЛЬКО если это dict И проходит jsonSchema-валидацию.
-                # Иначе (пустой ответ / невалидный JSON / несоответствие схеме) —
-                # ok=0 с диагностикой, чанк переобрабатывается при след. запуске.
-                if not isinstance(payload, dict):
-                    ok, err = 0, "json_parse_failed"
-                elif not _validate_schema(payload, prompts.EXTRACTION_SCHEMA):
-                    ok, err = 0, "schema_invalid"
+    def _run_pass(items: list[dict], mtok: int, total: int):
+        for i in range(0, len(items), batch_size):
+            batch = items[i : i + batch_size]
+            tasks = [
+                prompts.build_messages(c["text"], c.get("section_title")) for c in batch
+            ]
+
+            def _save(idx, result, batch=batch):
+                c = batch[idx]
+                if isinstance(result, Exception):
+                    # API-ошибка (сеть/4xx/5xx) — НЕ обработано (ok=0 -> ретрай)
+                    row = (c["chunk_id"], c["doc_id"], c.get("section_title"), c["text"],
+                           None, 0, str(result)[:400], time.time())
                 else:
-                    ok, err = 1, None
-                row = (c["chunk_id"], c["doc_id"], c.get("section_title"), c["text"],
-                       json.dumps(payload, ensure_ascii=False) if payload else None,
-                       ok, err, time.time())
-            with db_lock:
-                conn.execute("INSERT OR REPLACE INTO extractions VALUES (?,?,?,?,?,?,?,?)", row)
-                conn.commit()
-                counters["ok" if row[5] == 1 else "fail"] += 1
+                    payload = result.get("json")
+                    # ok=1 ТОЛЬКО если это dict И проходит jsonSchema-валидацию.
+                    # Иначе — ok=0 с диагностикой, переобработка при след. запуске.
+                    if not isinstance(payload, dict):
+                        ok, err = 0, "json_parse_failed"
+                    elif not _validate_schema(payload, prompts.EXTRACTION_SCHEMA):
+                        ok, err = 0, "schema_invalid"
+                    else:
+                        ok, err = 1, None
+                    row = (c["chunk_id"], c["doc_id"], c.get("section_title"), c["text"],
+                           json.dumps(payload, ensure_ascii=False) if payload else None,
+                           ok, err, time.time())
+                with db_lock:
+                    conn.execute("INSERT OR REPLACE INTO extractions VALUES (?,?,?,?,?,?,?,?)", row)
+                    conn.commit()
+                    state["ok" if row[5] == 1 else "fail"] += 1
 
-        complete_batch(
-            tasks, model=model, json_schema=prompts.EXTRACTION_SCHEMA,
-            temperature=0.1, max_tokens=3000, parse_json=True, on_result=_save,
-        )
-        processed += len(batch)
-        el = time.time() - t0
-        u = USAGE.snapshot()
-        print(f"[extract] {processed}/{len(todo)} чанков | ok:{counters['ok']} "
-              f"fail:{counters['fail']} | {el:.0f}s | "
-              f"toks in/out {u['completion_input_tokens']}/{u['completion_output_tokens']} | "
-              f"429:{u['rate_limit_hits']} retries:{u['retries']}")
+            complete_batch(
+                tasks, model=model, json_schema=prompts.EXTRACTION_SCHEMA,
+                temperature=0.1, max_tokens=mtok, parse_json=True, on_result=_save,
+            )
+            state["processed"] += len(batch)
+            el = time.time() - t0
+            u = USAGE.snapshot()
+            print(f"[extract] {state['processed']}/{total} чанков | ok:{state['ok']} "
+                  f"fail:{state['fail']} | mt:{mtok} | {el:.0f}s | "
+                  f"toks in/out {u['completion_input_tokens']}/{u['completion_output_tokens']} | "
+                  f"429:{u['rate_limit_hits']} retries:{u['retries']}")
+
+    # два прохода: сперва boost-чанки (прошлый фейл — обрезанный JSON) с большим
+    # max_tokens, затем остальные со стандартным (порядок failed-first сохранён)
+    todo_boost = [c for c in todo if c["chunk_id"] in boost_ids]
+    todo_norm = [c for c in todo if c["chunk_id"] not in boost_ids]
+    if todo_boost:
+        _run_pass(todo_boost, boost_tokens, len(todo))
+    _run_pass(todo_norm, max_tokens, len(todo))
     conn.close()
 
 
@@ -663,6 +717,14 @@ def main():
     ap.add_argument("--no-embed-match", action="store_true")
     ap.add_argument("--retry-failed", action="store_true",
                     help="переобработать только ранее упавшие чанки (ok=0)")
+    ap.add_argument("--priority-only", action="store_true",
+                    help="только приоритетные документы: Обзоры/Статьи/Доклады, "
+                         "Журналы>=2015, Материалы конференций без market_report")
+    ap.add_argument("--max-tokens", type=int, default=3000,
+                    help="max_tokens по умолчанию (деф. 3000)")
+    ap.add_argument("--boost-tokens", type=int, default=8000,
+                    help="max_tokens для чанков с прошлым json_parse_failed/"
+                         "schema_invalid (деф. 8000, убирает churn длинных выводов)")
     ap.add_argument("--keep-proxy", action="store_true",
                     help="НЕ снимать глобальный HTTP(S)_PROXY (по умолчанию снимаем: "
                          "глобальный прокси ломает прямой доступ к YandexGPT)")
@@ -686,7 +748,9 @@ def main():
 
     if not args.build_only:
         run_extraction(inp, args.limit, args.batch_size, args.model,
-                       retry_failed=args.retry_failed)
+                       retry_failed=args.retry_failed,
+                       priority_only=args.priority_only,
+                       max_tokens=args.max_tokens, boost_tokens=args.boost_tokens)
 
     print("[build] строю граф из накопленных экстракций...")
     gb = build_graph(use_embedding=not args.no_embed_match)
