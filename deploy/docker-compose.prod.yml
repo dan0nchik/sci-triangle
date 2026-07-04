@@ -141,7 +141,9 @@ services:
         condition: service_healthy
       es:
         condition: service_healthy
-    mem_limit: 1g
+    # 1g OOM-kills the worker once it mmaps the 465 MB qwen3-0.6b chunk matrix
+    # (EMBEDDING_SPACE=qwen3-0.6b); 2g gives headroom for matrix + request handling.
+    mem_limit: 2g
     restart: unless-stopped
 
   ui:
