@@ -28,14 +28,20 @@ completion (эмбеддинги остаются в shared/yandex_client.py).
   LLM_MODEL_SYNTHESIS         —   (напр. "openrouter:deepseek/deepseek-chat-v3")
   LLM_MODEL_EXTRACTION        —   (напр. "yandex:yandexgpt-lite")
   LLM_MODEL_SUMMARIES         —
-  LLM_FALLBACK[_<ROLE>]       — опциональная фолбэк-цепочка "provider:model_id"
+  LLM_FALLBACK[_<ROLE>]       — фолбэк-цепочка, через запятую:
+                                "groq:qwen/qwen3-32b, gigachat:GigaChat-2, mock:mock"
   <PROVIDER>_BASE_URL         — база openai-совместимого API (у openrouter есть дефолт)
   <PROVIDER>_API_KEY          — ключ
   <PROVIDER>_MODEL            — дефолт-модель провайдера (если роль без явной модели)
-  <PROVIDER>_JSON_SCHEMA      — native|json_object|none|auto (по умолчанию auto)
+  <PROVIDER>_JSON_SCHEMA      — native|json_object|prompt|auto (по умолчанию auto)
   <PROVIDER>_MAX_CONCURRENCY  — лимит конкурентности (по умолчанию 4)
   <PROVIDER>_TIMEOUT          — таймаут запроса, с (по умолчанию 90)
   <PROVIDER>_REQUIRE_KEY      — 0, если ключ не нужен (локальные ollama/lmstudio/vllm)
+  <PROVIDER>_PROXY            — HTTP(S)-прокси ТОЛЬКО для этого провайдера (например,
+                                GROQ_PROXY). Глобальный HTTPS_PROXY НЕ используем —
+                                он ломает localhost-вызовы (Neo4j/ES/uvicorn).
+  GIGACHAT_AUTH_KEY           — авторизационный ключ GigaChat (base64 client:secret)
+  GIGACHAT_SCOPE              — GIGACHAT_API_B2B (деф.) | GIGACHAT_API_PERS | _CORP
 
 Поведение по умолчанию (LLM_PROVIDER=yandex, без оверрайдов) — байт-в-байт как раньше:
 роль резолвится в yandex-бэкенд с моделью, которую передаёт потребитель (default_model).
@@ -370,8 +376,9 @@ class OpenAICompatibleBackend(Backend):
     structured output:
       * native      — response_format {type: json_schema, json_schema:{schema, strict}}
       * json_object — response_format {type: json_object} + схема в промпте + валидация
-      * none        — обычный текст (модель без JSON-режима)
-      * auto        — пробуем native, при 400/ошибке response_format падаем в json_object
+      * prompt      — БЕЗ response_format: схема в промпте + валидация + 1 ретрай
+                      (для API, которые не принимают response_format вовсе — GigaChat)
+      * auto        — native → (400) → json_object → (400) → prompt
     """
 
     def __init__(self, provider: str) -> None:
@@ -380,6 +387,10 @@ class OpenAICompatibleBackend(Backend):
         self.api_key = _env(provider, "API_KEY", "") or ""
         self.schema_mode = (_env(provider, "JSON_SCHEMA", "auto") or "auto").strip().lower()
         self.timeout = float(_env(provider, "TIMEOUT", "90") or 90)
+        # пер-провайдерный прокси (например GROQ_PROXY). Ключевое требование: прокси
+        # применяется ТОЛЬКО к вызовам этого провайдера, не через глобальные env.
+        proxy = _env(provider, "PROXY")
+        self._proxies = {"http": proxy, "https": proxy} if proxy else None
         conc = int(_env(provider, "MAX_CONCURRENCY", "4") or 4)
         self._sem = threading.Semaphore(max(1, conc))
         self._concurrency = max(1, conc)
@@ -433,14 +444,21 @@ class OpenAICompatibleBackend(Backend):
                 body["response_format"] = {"type": "json_object"}
                 # схему кладём в сообщение (последним system-указанием)
                 msgs.append({"role": "system", "content": self._schema_prompt(json_schema)})
+            elif mode == "prompt":
+                # без response_format вовсе — только инструкция со схемой
+                msgs.append({"role": "system", "content": self._schema_prompt(json_schema)})
         return body
 
     def _post(self, body):
         import requests
 
         url = f"{self.base_url}/chat/completions"
+        kw: dict[str, Any] = {"headers": self._headers(), "json": body,
+                              "timeout": self.timeout}
+        if self._proxies:
+            kw["proxies"] = self._proxies
         with self._sem:
-            return requests.post(url, headers=self._headers(), json=body, timeout=self.timeout)
+            return requests.post(url, **kw)
 
     def _parse(self, resp_json, model, parse_json, json_schema):
         choices = resp_json.get("choices") or []
@@ -470,10 +488,10 @@ class OpenAICompatibleBackend(Backend):
             modes = ["native"]
         elif self.schema_mode == "json_object":
             modes = ["json_object"]
-        elif self.schema_mode == "none":
-            modes = ["json_object"]  # хотя бы попросим json-объект в промпте
+        elif self.schema_mode in ("prompt", "none"):
+            modes = ["prompt"]
         else:  # auto
-            modes = ["native", "json_object"]
+            modes = ["native", "json_object", "prompt"]
 
         last_err: Exception | None = None
         for mode in modes:
@@ -486,8 +504,15 @@ class OpenAICompatibleBackend(Backend):
                     _backoff_sleep(attempt)
                     continue
                 if resp.status_code == 200:
-                    result = self._parse(resp.json(), model, parse_json, json_schema)
-                    if json_schema is not None and mode in ("json_object", "none"):
+                    resp_json = resp.json()
+                    # OpenRouter может вернуть HTTP 200 с телом-ошибкой (upstream 429):
+                    # не считаем это успехом, иначе цепочка фолбэков оборвётся
+                    if resp_json.get("error") and not resp_json.get("choices"):
+                        last_err = LLMGatewayError(str(resp_json["error"])[:200])
+                        _backoff_sleep(attempt)
+                        continue
+                    result = self._parse(resp_json, model, parse_json, json_schema)
+                    if json_schema is not None and mode in ("json_object", "prompt", "none"):
                         # фолбэк-режим: валидируем и один раз переспрашиваем строже
                         data = result.get("json")
                         if not _validate_schema(data, json_schema):
@@ -501,8 +526,9 @@ class OpenAICompatibleBackend(Backend):
                                     }], model, temperature, max_tokens, json_schema, mode)
                                 continue
                     return result
-                if resp.status_code == 400 and json_schema is not None and mode == "native":
-                    # модель/провайдер не поддерживает json_schema → фолбэк на json_object
+                if (resp.status_code in (400, 422) and json_schema is not None
+                        and mode in ("native", "json_object") and mode != modes[-1]):
+                    # провайдер не принимает этот response_format → следующий режим
                     break
                 if resp.status_code == 429 or 500 <= resp.status_code < 600:
                     _backoff_sleep(attempt)
@@ -575,6 +601,90 @@ class MockBackend(Backend):
         return result
 
 
+class GigaChatBackend(OpenAICompatibleBackend):
+    """GigaChat (Сбер): openai-подобный chat/completions + OAuth-токен на 30 минут.
+
+    Авторизация: GIGACHAT_AUTH_KEY (base64 client_id:secret) →
+    POST https://ngw.devices.sberbank.ru:9443/api/v2/oauth (Basic + RqUID, form
+    scope=GIGACHAT_API_B2B) → access_token (expires_at, ~30 мин) → авто-рефреш за
+    60 с до истечения. Сертификат НУЦ Минцифры: по умолчанию verify=False
+    (GIGACHAT_CA_BUNDLE=/path/to/ca.pem чтобы включить проверку).
+    structured output: response_format у GigaChat не как у OpenAI → дефолт 'prompt'
+    (схема в промпте + валидация + ретрай), переопределяется GIGACHAT_JSON_SCHEMA.
+    """
+
+    OAUTH_URL = "https://ngw.devices.sberbank.ru:9443/api/v2/oauth"
+    DEFAULT_BASE = "https://gigachat.devices.sberbank.ru/api/v1"
+
+    def __init__(self, provider: str = "gigachat") -> None:
+        super().__init__(provider)
+        if not self.base_url:
+            self.base_url = self.DEFAULT_BASE
+        self.auth_key = _env(provider, "AUTH_KEY", "") or ""
+        self.scope = _env(provider, "SCOPE", "GIGACHAT_API_B2B") or "GIGACHAT_API_B2B"
+        ca = _env(provider, "CA_BUNDLE")
+        self._verify: Any = ca if ca else False
+        if _env(provider, "JSON_SCHEMA") is None:
+            self.schema_mode = "prompt"
+        self._token: str | None = None
+        self._token_exp: float = 0.0   # unix seconds
+        self._token_lock = threading.Lock()
+
+    def available(self) -> bool:
+        return bool(self.auth_key or self.api_key)
+
+    def _fetch_token(self) -> str:
+        import uuid
+        import requests
+        import urllib3
+
+        urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
+        resp = requests.post(
+            self.OAUTH_URL,
+            headers={
+                "Authorization": f"Basic {self.auth_key}",
+                "RqUID": str(uuid.uuid4()),
+                "Content-Type": "application/x-www-form-urlencoded",
+            },
+            data={"scope": self.scope},
+            timeout=30,
+            verify=self._verify,
+            proxies=self._proxies,
+        )
+        if resp.status_code != 200:
+            raise LLMGatewayError(f"gigachat oauth HTTP {resp.status_code}: {resp.text[:200]}")
+        body = resp.json()
+        token = body.get("access_token")
+        if not token:
+            raise LLMGatewayError(f"gigachat oauth: нет access_token: {resp.text[:200]}")
+        exp_ms = body.get("expires_at")  # unix millis
+        self._token_exp = (float(exp_ms) / 1000.0) if exp_ms else (time.time() + 25 * 60)
+        return token
+
+    def _bearer(self) -> str:
+        if self.api_key:  # прямой access_token, если задан
+            return self.api_key
+        with self._token_lock:
+            if self._token is None or time.time() > self._token_exp - 60:
+                self._token = self._fetch_token()
+            return self._token
+
+    def _headers(self) -> dict[str, str]:
+        return {"Content-Type": "application/json",
+                "Authorization": f"Bearer {self._bearer()}"}
+
+    def _post(self, body):
+        import requests
+
+        url = f"{self.base_url}/chat/completions"
+        kw: dict[str, Any] = {"headers": self._headers(), "json": body,
+                              "timeout": self.timeout, "verify": self._verify}
+        if self._proxies:
+            kw["proxies"] = self._proxies
+        with self._sem:
+            return requests.post(url, **kw)
+
+
 # ---------------------------------------------------------------- реестр бэкендов
 _BACKENDS: dict[str, Backend] = {}
 _BACKENDS_LOCK = threading.Lock()
@@ -590,6 +700,8 @@ def _get_backend(provider: str) -> Backend:
             b = YandexBackend()
         elif provider == "mock":
             b = MockBackend()
+        elif provider == "gigachat":
+            b = GigaChatBackend()
         else:
             # всё прочее (openrouter/openai/vllm/ollama/lmstudio/openai_compatible/...)
             b = OpenAICompatibleBackend(provider)
@@ -625,13 +737,22 @@ class LLMGateway:
                 model = _env(provider, "MODEL") or default_model or ""
             chain.append((_get_backend(provider), model))
 
-        # фолбэк-цепочка (опционально)
+        # фолбэк-цепочка (опционально, через запятую: "groq:m1, gigachat:m2, mock:mock")
         fb = None
         if role:
             fb = os.environ.get(f"LLM_FALLBACK_{role.upper()}")
         fb = fb or os.environ.get("LLM_FALLBACK")
         if fb:
-            chain.append(self._parse_spec(fb, default_model))
+            seen = {(b.name, m) for b, m in chain}
+            for spec in fb.split(","):
+                spec = spec.strip()
+                if not spec:
+                    continue
+                b, m = self._parse_spec(spec, default_model)
+                if (b.name, m) in seen:
+                    continue  # не дублируем (провайдер, модель) в цепочке
+                seen.add((b.name, m))
+                chain.append((b, m))
         return chain
 
     @staticmethod

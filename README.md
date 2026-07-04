@@ -100,6 +100,17 @@ LLM — через мультипровайдерный шлюз (`shared/llm_ga
 
 ---
 
+## Семантический слой (FAIR)
+
+Формальная семантика на стандартах W3C — граф портируем и машинно-валидируем.
+
+- **OWL-онтология** — [`docs/ontology.ttl`](docs/ontology.ttl): 12 классов (Material, Process, Condition, Measurement, Assertion, Publication…), 17 object- и 29 datatype-свойств; метки RU+EN, комментарии RU, домены/диапазоны.
+- **SHACL-шейпы** — [`docs/shapes.ttl`](docs/shapes.ttl): обязательный провенанс факт-рёбер (source_doc, confidence 0..1, method∈{rule,llm,manual}), структура Condition/Measurement (op, value:double, unit), Assertion (statement, confidence, review_status, непустой evidence).
+- **Реальная валидация** — `python backend/validate_graph.py --full` (rdflib → pyshacl): весь граф **28 159 узлов / 47 722 ребра → 722 300 триплетов** за ~14 с. Провенанс рёбер и Assertion проходят чисто; фактический отчёт с топ-категориями нарушений — [`docs/VALIDATION_REPORT.md`](docs/VALIDATION_REPORT.md).
+- **Единый словарь** — JSON-LD экспорт (`backend/app/exporters.py`, schema.org + PROV-O) использует тот же базовый IRI `https://sci-tangle.nornickel.example/ontology#`, что и TTL: онтология, валидация и экспорт — один словарь.
+
+---
+
 ## Структура репозитория
 
 | Путь | Что |

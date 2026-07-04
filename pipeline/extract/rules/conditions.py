@@ -17,7 +17,7 @@ from __future__ import annotations
 import re
 from typing import List, Optional
 
-from .numbers import NUM, parse_number
+from .number_extract import NUM, parse_number
 from .units import canonicalize_unit
 
 NUM_G = r"(?:" + NUM + r")"

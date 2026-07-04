@@ -532,10 +532,20 @@ def retrieve(query: str, intent: Dict[str, Any],
         cos = rec.get("cosine", 0.0)
         lex = ("es" in rec["sources"]) and (rec["es_score"] or 0) >= LEX_FRAC * es_max
         sem = cos >= SEM_THRESHOLD
-        concept = ((doc in distinctive_docs) or (doc in namedoc_docs)
+        namedoc = doc in namedoc_docs
+        concept = (namedoc or (doc in distinctive_docs)
                    or _concept_in_text(rec.get("text", ""), distinctive))
         nsig = sum([lex, sem, concept])
         keep = (nsig >= 2) or (cos >= SEM_STRONG) or (concept and cos >= SEM_CONCEPT)
+        # A doc whose NAME strongly matches the query is in-domain by construction
+        # (see gate.namedoc). Its chunks are pulled by a query-anchored lexical search
+        # (branch_docname -> es_search_chunks), so they are on-topic evidence. Guarantee
+        # they survive the gate so the deterministic citation-promotion slot below always
+        # has a candidate — otherwise the relative-lex gate (es_score >= LEX_FRAC*es_max,
+        # where es_max is the GLOBAL top) could drop the namedoc chunk run-to-run,
+        # making the promotion non-deterministic (f22 Cuba/Punta-Gorda flakiness).
+        if namedoc:
+            keep = True
         rec.update({"lex": lex, "sem": sem, "concept": concept,
                     "n_signals": nsig, "keep": keep})
         if keep:

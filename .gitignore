@@ -13,3 +13,8 @@ volumes/
 *.sqlite
 *.sqlite3
 backups/
+# scratch / probe artifacts
+*.log
+scratch_*/
+scratch_*.log
+corpus_scan_probe.json

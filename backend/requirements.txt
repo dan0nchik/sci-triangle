@@ -23,3 +23,5 @@ xlrd==2.0.2                        # legacy .xls extraction
 lxml                               # docm raw-OOXML fallback
 PyYAML                             # concepts registry (pipeline.extract.normalize)
 jsonschema                         # structured-output validation (llm_gateway)
+rdflib                             # SHACL validation: JSONL graph -> RDF (validate_graph.py)
+pyshacl                            # SHACL validation against docs/shapes.ttl (C6)

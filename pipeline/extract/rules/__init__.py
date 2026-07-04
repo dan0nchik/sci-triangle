@@ -8,7 +8,7 @@
 """
 from .conditions import extract_conditions
 from .units import canonicalize_unit, normalize_unit
-from .numbers import validate_numbers, parse_number
+from .number_extract import validate_numbers, parse_number
 from .geography import detect_geography
 
 __all__ = [

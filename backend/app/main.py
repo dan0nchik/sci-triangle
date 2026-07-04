@@ -33,7 +33,7 @@ from app import (analytics, auth, db, exporters, observability,
                  search as search_mod, store, upload as upload_mod)
 from app.models import (
     AuditLogResponse, CompareResponse, CompareRow, DocumentResponse,
-    EdgePatch, EdgePatchResponse, ExpertRef, ExpertsResponse, ExportRequest, ExportResponse,
+    EdgePatch, EdgePatchResponse, ExpertRef, ExportRequest, ExportResponse,
     NodeNeighborsResponse, ReviewRequest, ReviewResponse, SearchRequest,
     SearchResponse, StatsResponse, SubscriptionListResponse, SubscriptionRequest,
     SubscriptionResponse, SubscriptionUpdates, TokenRequest, TokenResponse,

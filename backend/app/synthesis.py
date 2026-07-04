@@ -29,13 +29,19 @@ sys.path.insert(0, str(REPO))
 import llm  # noqa: E402
 
 try:  # read-only import of the rule-based number validator
-    from pipeline.extract.rules.numbers import validate_numbers  # type: ignore
+    from pipeline.extract.rules.number_extract import validate_numbers  # type: ignore
 except Exception:  # pragma: no cover
     def validate_numbers(numbers, chunk_text):  # type: ignore
         return [str(nn).replace(",", ".") in (chunk_text or "").replace(",", ".")
                 for nn in numbers]
 
 _NUM_RE = re.compile(r"\d+(?:[.,\s]\d+)*")
+
+
+def _norm_cites(text: str) -> str:
+    """Нормализация цитат-маркеров: некоторые модели (gpt-oss) ставят 【n】 вместо [n];
+    без нормализации grounding-регекс \\[\\d+\\] принял бы 'n' за число."""
+    return re.sub(r"【(\d+)】", r"[\1]", text)
 
 _SYS = (
     "Ты — аналитик базы знаний R&D горно-металлургической отрасли, и твой ответ "
@@ -232,11 +238,15 @@ def judge_relevance(query: str, citations: List[Dict]) -> bool:
             f"{snippets}\n\nОпредели ПРЕДМЕТ запроса. Если он вне домена корпуса "
             "(никель/медь/кобальт/МПГ, руды, обогащение, металлургия, водоочистка ГМК) — "
             "relevant=false. Верни JSON {\"relevant\": true|false}.")
+    # NOTE: маршрутизируем через роль PLANNER (дешёвый быстрый классификатор).
+    # Reasoning-модели синтеза (gpt-oss-120b) сжигают бюджет в 20 токенов на
+    # размышления и возвращают пустой content -> judge бы fail-open, honesty падала.
+    # На Yandex-дефолте поведение идентично (обе роли -> lite).
     r = llm.complete([{"role": "system", "text": _REL_SYS},
                       {"role": "user", "text": user}],
                      model="lite", temperature=0.0, max_tokens=20,
                      json_schema=_REL_SCHEMA, parse_json=True, max_retries=2,
-                     model_role="synthesis")
+                     model_role="planner")
     if not r:
         return True
     j = r.get("json")
@@ -291,7 +301,7 @@ def synthesize(query: str, intent: Dict, citations: List[Dict],
                          model=SYNTH_MODEL, temperature=0.2, max_tokens=maxtok, max_retries=2,
                          model_role="synthesis")
         if r and r.get("text", "").strip():
-            answer_md = _ground_numbers(r["text"].strip(), allowed)
+            answer_md = _ground_numbers(_norm_cites(r["text"].strip()), allowed)
             # if grounding stripped a lot / left invalid numbers, retry once stricter
             if re.sub(r"\s", "", answer_md) == "" or _has_ungrounded(answer_md, allowed):
                 allowed_nums = sorted(set(_numbers_in(allowed)))
@@ -302,7 +312,7 @@ def synthesize(query: str, intent: Dict, citations: List[Dict],
                                   model=SYNTH_MODEL, temperature=0.1, max_tokens=maxtok,
                                   max_retries=2, model_role="synthesis")
                 if r2 and r2.get("text", "").strip():
-                    answer_md = _ground_numbers(r2["text"].strip(), allowed)
+                    answer_md = _ground_numbers(_norm_cites(r2["text"].strip()), allowed)
 
     if not answer_md or not answer_md.strip():
         answer_md = _template(query, qtype, citations, assertions, measurements,

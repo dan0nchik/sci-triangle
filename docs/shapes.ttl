@@ -1,0 +1,151 @@
+@prefix sct:  <https://sci-tangle.nornickel.example/ontology#> .
+@prefix sh:   <http://www.w3.org/ns/shacl#> .
+@prefix rdf:  <http://www.w3.org/1999/02/22-rdf-syntax-ns#> .
+@prefix rdfs: <http://www.w3.org/2000/01/rdf-schema#> .
+@prefix xsd:  <http://www.w3.org/2001/XMLSchema#> .
+
+#################################################################
+#  SHACL-шейпы для графа sci-tangle.
+#  Валидируют доказательность (provenance) и структуру данных
+#  по онтологии docs/ontology.ttl. Прогон: backend/validate_graph.py.
+#
+#  severity Violation — жёсткое требование модели;
+#  severity Warning   — желательное поле, отсутствующее в текущей
+#                       денормализации графа (например год публикации,
+#                       живущий в corpus/documents.jsonl).
+#################################################################
+
+# ---------------------------------------------------------------
+#  Факт-ребро: обязателен провенанс (PLAN.md §2.2)
+# ---------------------------------------------------------------
+sct:FactShape a sh:NodeShape ;
+    sh:targetClass sct:Fact ;
+    rdfs:label "Провенанс факта-ребра" ;
+    sh:property [
+        sh:path sct:source_doc ;
+        sh:minCount 1 ;
+        sh:datatype xsd:string ;
+        sh:message "Факт-ребро обязано ссылаться на документ-источник (source_doc)." ;
+    ] ;
+    sh:property [
+        sh:path sct:confidence ;
+        sh:minCount 1 ;
+        sh:datatype xsd:double ;
+        sh:minInclusive 0.0 ;
+        sh:maxInclusive 1.0 ;
+        sh:message "confidence факта обязателен и должен лежать в диапазоне 0..1." ;
+    ] ;
+    sh:property [
+        sh:path sct:extractedAt ;
+        sh:minCount 1 ;
+        sh:message "У факта-ребра обязана быть дата извлечения (extracted_at)." ;
+    ] ;
+    sh:property [
+        sh:path sct:method ;
+        sh:minCount 1 ;
+        sh:in ( "rule" "llm" "manual" ) ;
+        sh:message "method обязателен и ∈ {rule, llm, manual}." ;
+    ] .
+
+# ---------------------------------------------------------------
+#  Условие: структурированное число (никогда «просто текст»)
+# ---------------------------------------------------------------
+sct:ConditionShape a sh:NodeShape ;
+    sh:targetClass sct:Condition ;
+    rdfs:label "Структура условия" ;
+    sh:property [
+        sh:path sct:op ;
+        sh:minCount 1 ;
+        sh:in ( "=" "<" ">" "<=" ">=" "range" "approx" ) ;
+        sh:message "op условия обязателен и ∈ {=, <, >, <=, >=, range, approx}." ;
+    ] ;
+    sh:property [
+        sh:path sct:value ;
+        sh:minCount 1 ;
+        sh:datatype xsd:double ;
+        sh:message "value условия обязательно и должно быть числом (xsd:double)." ;
+    ] ;
+    sh:property [
+        sh:path sct:unit ;
+        sh:minCount 1 ;
+        sh:datatype xsd:string ;
+        sh:severity sh:Warning ;
+        sh:message "У условия желательна единица измерения (unit)." ;
+    ] .
+
+# ---------------------------------------------------------------
+#  Измерение: структурированное число
+# ---------------------------------------------------------------
+sct:MeasurementShape a sh:NodeShape ;
+    sh:targetClass sct:Measurement ;
+    rdfs:label "Структура измерения" ;
+    sh:property [
+        sh:path sct:op ;
+        sh:minCount 1 ;
+        sh:in ( "=" "<" ">" "<=" ">=" "range" "approx" ) ;
+        sh:message "op измерения обязателен и ∈ {=, <, >, <=, >=, range, approx}." ;
+    ] ;
+    sh:property [
+        sh:path sct:value ;
+        sh:minCount 1 ;
+        sh:datatype xsd:double ;
+        sh:message "value измерения обязательно и должно быть числом (xsd:double)." ;
+    ] ;
+    sh:property [
+        sh:path sct:unit ;
+        sh:minCount 1 ;
+        sh:datatype xsd:string ;
+        sh:severity sh:Warning ;
+        sh:message "У измерения желательна единица измерения (unit)." ;
+    ] .
+
+# ---------------------------------------------------------------
+#  Утверждение: statement + уверенность + статус + доказательства
+# ---------------------------------------------------------------
+sct:AssertionShape a sh:NodeShape ;
+    sh:targetClass sct:Assertion ;
+    rdfs:label "Структура утверждения" ;
+    sh:property [
+        sh:path sct:statement ;
+        sh:minCount 1 ;
+        sh:datatype xsd:string ;
+        sh:message "У утверждения обязан быть текст (statement)." ;
+    ] ;
+    sh:property [
+        sh:path sct:assertionConfidence ;
+        sh:minCount 1 ;
+        sh:in ( "high" "medium" "low" ) ;
+        sh:message "confidence утверждения обязателен и ∈ {high, medium, low}." ;
+    ] ;
+    sh:property [
+        sh:path sct:reviewStatus ;
+        sh:minCount 1 ;
+        sh:in ( "auto" "confirmed" "disputed" "rejected" ) ;
+        sh:message "review_status обязателен и ∈ {auto, confirmed, disputed, rejected}." ;
+    ] ;
+    sh:property [
+        sh:path sct:hasEvidence ;
+        sh:minCount 1 ;
+        sh:message "У утверждения обязано быть ≥1 доказательство (evidence непустой)." ;
+    ] .
+
+# ---------------------------------------------------------------
+#  Публикация: год + тип источника (в текущем графе — Warning,
+#  т.к. поля живут в corpus/documents.jsonl и не денормализованы)
+# ---------------------------------------------------------------
+sct:PublicationShape a sh:NodeShape ;
+    sh:targetClass sct:Publication ;
+    rdfs:label "Метаданные публикации" ;
+    sh:property [
+        sh:path sct:year ;
+        sh:minCount 1 ;
+        sh:datatype xsd:integer ;
+        sh:severity sh:Warning ;
+        sh:message "У публикации желателен год (year) — источник: documents.jsonl." ;
+    ] ;
+    sh:property [
+        sh:path sct:sourceType ;
+        sh:minCount 1 ;
+        sh:severity sh:Warning ;
+        sh:message "У публикации желателен тип источника (source_type) — источник: documents.jsonl." ;
+    ] .

@@ -80,10 +80,11 @@ def to_jsonld(query: str, result: Dict[str, Any]) -> str:
     derived: List[Dict[str, Any]] = []
     for c in citations:
         node: Dict[str, Any] = {
-            "@type": "CreativeWork",
+            "@type": ["CreativeWork", "sct:Publication"],
             "@id": f"urn:doc:{c.get('doc_id')}",
             "name": c.get("title") or c.get("doc_id"),
             "identifier": c.get("doc_id"),
+            "sct:doc_id": c.get("doc_id"),
         }
         if c.get("year"):
             node["datePublished"] = str(c["year"])
@@ -101,8 +102,12 @@ def to_jsonld(query: str, result: Dict[str, Any]) -> str:
             "@vocab": "https://schema.org/",
             "prov": "http://www.w3.org/ns/prov#",
             "xsd": "http://www.w3.org/2001/XMLSchema#",
+            # Shared sci-tangle ontology vocabulary — same base IRI as docs/ontology.ttl
+            # so this JSON-LD and the OWL/SHACL layer are one dictionary.
+            "sct": "https://sci-tangle.nornickel.example/ontology#",
+            "confidence": "sct:assertionConfidence",
         },
-        "@type": ["prov:Entity", main_type],
+        "@type": ["prov:Entity", "sct:Assertion", main_type],
         "name": query,
         "abstract": result.get("answer_md"),
         "prov:generatedAtTime": {

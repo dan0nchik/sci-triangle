@@ -1,0 +1,313 @@
+@prefix sct:  <https://sci-tangle.nornickel.example/ontology#> .
+@prefix owl:  <http://www.w3.org/2002/07/owl#> .
+@prefix rdf:  <http://www.w3.org/1999/02/22-rdf-syntax-ns#> .
+@prefix rdfs: <http://www.w3.org/2000/01/rdf-schema#> .
+@prefix xsd:  <http://www.w3.org/2001/XMLSchema#> .
+@prefix dcterms: <http://purl.org/dc/terms/> .
+@prefix prov: <http://www.w3.org/ns/prov#> .
+
+#################################################################
+#  sci-tangle Ontology (OWL)
+#  Карта знаний R&D горно-металлургической отрасли (Норникель).
+#  Формальный семантический слой: классы + свойства из PLAN.md §2.
+#  Base IRI совпадает с @context JSON-LD экспорта (exporters.py),
+#  поэтому TTL и экспортируемый JSON-LD — один словарь.
+#################################################################
+
+<https://sci-tangle.nornickel.example/ontology>
+    a owl:Ontology ;
+    dcterms:title "sci-tangle knowledge ontology"@en ;
+    dcterms:title "Онтология знаний sci-tangle"@ru ;
+    rdfs:comment "OWL-онтология карты знаний R&D (материалы, процессы, оборудование, условия, измерения, утверждения с провенансом). Соответствует Assertion-центричной модели: факты — это утверждения с доказательствами, условиями и провенансом."@ru ;
+    owl:versionInfo "1.0.0" .
+
+#################################################################
+#  Классы узлов (PLAN.md §2.1)
+#################################################################
+
+sct:Material a owl:Class ;
+    rdfs:label "Материал"@ru , "Material"@en ;
+    rdfs:comment "Вещество: металл, руда, реагент, отход или раствор (никель, катодная медь, штейн, шлак, католит)."@ru .
+
+sct:Process a owl:Class ;
+    rdfs:label "Процесс"@ru , "Process"@en ;
+    rdfs:comment "Технологический процесс (электроэкстракция, кучное выщелачивание, флотация, обессоливание)."@ru .
+
+sct:Equipment a owl:Class ;
+    rdfs:label "Оборудование"@ru , "Equipment"@en ;
+    rdfs:comment "Аппарат или установка (ванна электроэкстракции, ПВП, диафрагменная ячейка)."@ru .
+
+sct:Parameter a owl:Class ;
+    rdfs:label "Параметр"@ru , "Parameter"@en ;
+    rdfs:comment "Измеримая величина (концентрация сульфатов, температура, скорость циркуляции) с канонической единицей."@ru .
+
+sct:Condition a owl:Class ;
+    rdfs:label "Условие"@ru , "Condition"@en ;
+    rdfs:comment "Структурированное условие процесса: параметр, оператор сравнения, значение(я), единица (например «сульфаты ≤300 мг/л», «pH 2–4»). Никогда «просто текст»."@ru .
+
+sct:Measurement a owl:Class ;
+    rdfs:label "Измерение"@ru , "Measurement"@en ;
+    rdfs:comment "Структурированный результат измерения: параметр, значение, единица (например «извлечение 92,5 %», «расход 1,2 м³/ч»)."@ru .
+
+sct:Experiment a owl:Class ;
+    rdfs:label "Эксперимент"@ru , "Experiment"@en ;
+    rdfs:comment "Опыт/испытание с условиями и измерениями (например обеднение шлака при T=1250°C)."@ru .
+
+sct:Publication a owl:Class ;
+    rdfs:label "Публикация"@ru , "Publication"@en ;
+    rdfs:comment "Документ-источник: статья, обзор, доклад, отчёт, патент, книга, материалы конференции."@ru .
+
+sct:Expert a owl:Class ;
+    rdfs:label "Эксперт"@ru , "Expert"@en ;
+    rdfs:comment "Специалист/автор (например Косов Я.И.) с аффилиацией и темами."@ru .
+
+sct:Facility a owl:Class ;
+    rdfs:label "Организация/установка"@ru , "Facility"@en ;
+    rdfs:comment "Лаборатория, завод или институт (ЛГМ, ЛПМ, ИАЦ, Институт Гипроникель, з-д Уэльва)."@ru .
+
+sct:Assertion a owl:Class ;
+    rdfs:subClassOf prov:Entity ;
+    rdfs:label "Утверждение"@ru , "Assertion"@en ;
+    rdfs:comment "Фактическое утверждение с доказательствами (evidence), уверенностью (high/medium/low), статусом ревью и версионированием (superseded_by). Ядро Assertion-центричной модели."@ru .
+
+sct:Fact a owl:Class ;
+    rdfs:subClassOf rdf:Statement , prov:Entity ;
+    rdfs:label "Факт-ребро"@ru , "Provenanced fact"@en ;
+    rdfs:comment "Реифицированное ребро графа (связь src→dst) с обязательным провенансом: source_doc, confidence, extracted_at, method. Позволяет валидировать доказательность каждой связи."@ru .
+
+#################################################################
+#  Object properties — типы связей (PLAN.md §2.2)
+#################################################################
+
+sct:uses_material a owl:ObjectProperty ;
+    rdfs:label "использует материал"@ru , "uses material"@en ;
+    rdfs:comment "Процесс потребляет материал на входе."@ru ;
+    rdfs:domain sct:Process ; rdfs:range sct:Material .
+
+sct:produces_output a owl:ObjectProperty ;
+    rdfs:label "производит продукт"@ru , "produces output"@en ;
+    rdfs:comment "Процесс даёт материал на выходе."@ru ;
+    rdfs:domain sct:Process ; rdfs:range sct:Material .
+
+sct:operates_at_condition a owl:ObjectProperty ;
+    rdfs:label "работает при условии"@ru , "operates at condition"@en ;
+    rdfs:comment "Процесс или эксперимент протекает при заданном структурированном условии."@ru ;
+    rdfs:range sct:Condition .
+
+sct:uses_equipment a owl:ObjectProperty ;
+    rdfs:label "использует оборудование"@ru , "uses equipment"@en ;
+    rdfs:comment "Процесс реализуется на данном оборудовании."@ru ;
+    rdfs:domain sct:Process ; rdfs:range sct:Equipment .
+
+sct:measured a owl:ObjectProperty ;
+    rdfs:label "измерено"@ru , "measured"@en ;
+    rdfs:comment "Эксперимент дал структурированное измерение."@ru ;
+    rdfs:domain sct:Experiment ; rdfs:range sct:Measurement .
+
+sct:described_in a owl:ObjectProperty ;
+    rdfs:label "описано в"@ru , "described in"@en ;
+    rdfs:comment "Сущность любого типа упомянута/описана в публикации."@ru ;
+    rdfs:range sct:Publication .
+
+sct:authored_by a owl:ObjectProperty ;
+    rdfs:label "автор"@ru , "authored by"@en ;
+    rdfs:comment "Публикация написана экспертом."@ru ;
+    rdfs:domain sct:Publication ; rdfs:range sct:Expert .
+
+sct:works_at a owl:ObjectProperty ;
+    rdfs:label "работает в"@ru , "works at"@en ;
+    rdfs:comment "Эксперт аффилирован с организацией/установкой."@ru ;
+    rdfs:domain sct:Expert ; rdfs:range sct:Facility .
+
+sct:expert_in a owl:ObjectProperty ;
+    rdfs:label "специалист по"@ru , "expert in"@en ;
+    rdfs:comment "Эксперт компетентен в процессе или материале."@ru ;
+    rdfs:domain sct:Expert .
+
+sct:validated_by a owl:ObjectProperty ;
+    rdfs:label "подтверждено"@ru , "validated by"@en ;
+    rdfs:comment "Утверждение подкреплено экспериментом или публикацией."@ru ;
+    rdfs:domain sct:Assertion .
+
+sct:contradicts a owl:ObjectProperty , owl:SymmetricProperty ;
+    rdfs:label "противоречит"@ru , "contradicts"@en ;
+    rdfs:comment "Утверждение несовместимо с другим утверждением (симметрично)."@ru ;
+    rdfs:domain sct:Assertion ; rdfs:range sct:Assertion .
+
+sct:supersedes a owl:ObjectProperty , owl:TransitiveProperty ;
+    rdfs:label "замещает"@ru , "supersedes"@en ;
+    rdfs:comment "Новая версия утверждения замещает предыдущую (версионирование, транзитивно)."@ru ;
+    rdfs:domain sct:Assertion ; rdfs:range sct:Assertion .
+
+sct:located_in a owl:ObjectProperty ;
+    rdfs:label "расположено в"@ru , "located in"@en ;
+    rdfs:comment "Организация/установка находится в стране или регионе."@ru ;
+    rdfs:domain sct:Facility .
+
+sct:about a owl:ObjectProperty ;
+    rdfs:label "о теме"@ru , "about"@en ;
+    rdfs:comment "Публикация посвящена материалу или процессу."@ru ;
+    rdfs:domain sct:Publication .
+
+sct:related a owl:ObjectProperty ;
+    rdfs:label "связано с"@ru , "related"@en ;
+    rdfs:comment "Обобщённая связь (fallback), когда конкретный тип связи не определён."@ru .
+
+# Реификация связи: субъект/объект факта-ребра.
+sct:factSubject a owl:ObjectProperty ;
+    rdfs:subPropertyOf rdf:subject ;
+    rdfs:label "субъект факта"@ru , "fact subject"@en ;
+    rdfs:domain sct:Fact .
+
+sct:factObject a owl:ObjectProperty ;
+    rdfs:subPropertyOf rdf:object ;
+    rdfs:label "объект факта"@ru , "fact object"@en ;
+    rdfs:domain sct:Fact .
+
+#################################################################
+#  Datatype properties — свойства узлов и провенанс рёбер
+#################################################################
+
+sct:concept_id a owl:DatatypeProperty ;
+    rdfs:label "ID концепта"@ru , "concept id"@en ;
+    rdfs:comment "Стабильный кросс-язычный идентификатор концепта из реестра терминов."@ru ;
+    rdfs:range xsd:string .
+
+sct:name_en a owl:DatatypeProperty ;
+    rdfs:label "название (EN)"@ru , "English name"@en ;
+    rdfs:range xsd:string .
+
+sct:alias a owl:DatatypeProperty ;
+    rdfs:label "алиас"@ru , "alias"@en ;
+    rdfs:comment "Синоним/аббревиатура сущности."@ru ;
+    rdfs:range xsd:string .
+
+# --- структура Condition / Measurement ---
+sct:param a owl:DatatypeProperty ;
+    rdfs:label "параметр"@ru , "parameter"@en ;
+    rdfs:comment "Имя измеряемого параметра условия/измерения."@ru ;
+    rdfs:range xsd:string .
+
+sct:paramConcept a owl:DatatypeProperty ;
+    rdfs:label "концепт параметра"@ru , "parameter concept"@en ;
+    rdfs:range xsd:string .
+
+sct:op a owl:DatatypeProperty ;
+    rdfs:label "оператор"@ru , "operator"@en ;
+    rdfs:comment "Оператор сравнения условия/измерения: =, <, >, <=, >=, range, approx."@ru ;
+    rdfs:range xsd:string .
+
+sct:value a owl:DatatypeProperty ;
+    rdfs:label "значение"@ru , "value"@en ;
+    rdfs:comment "Числовое значение (нижняя граница для range). Всегда число, извлечённое дословно из источника."@ru ;
+    rdfs:range xsd:double .
+
+sct:value2 a owl:DatatypeProperty ;
+    rdfs:label "значение 2"@ru , "value 2"@en ;
+    rdfs:comment "Верхняя граница для операторов range."@ru ;
+    rdfs:range xsd:double .
+
+sct:unit a owl:DatatypeProperty ;
+    rdfs:label "единица"@ru , "unit"@en ;
+    rdfs:comment "Каноническая единица измерения (мг/л, °C, м³/ч, %)."@ru ;
+    rdfs:range xsd:string .
+
+sct:quote a owl:DatatypeProperty ;
+    rdfs:label "цитата"@ru , "quote"@en ;
+    rdfs:comment "Дословный фрагмент источника, обосновывающий число/условие."@ru ;
+    rdfs:range xsd:string .
+
+# --- Assertion ---
+sct:statement a owl:DatatypeProperty ;
+    rdfs:label "утверждение"@ru , "statement"@en ;
+    rdfs:comment "Текст фактического утверждения."@ru ;
+    rdfs:range xsd:string .
+
+sct:assertionConfidence a owl:DatatypeProperty ;
+    rdfs:label "уверенность утверждения"@ru , "assertion confidence"@en ;
+    rdfs:comment "Качественная уверенность утверждения: high, medium, low."@ru ;
+    rdfs:range xsd:string .
+
+sct:reviewStatus a owl:DatatypeProperty ;
+    rdfs:label "статус ревью"@ru , "review status"@en ;
+    rdfs:comment "Статус проверки утверждения: auto, confirmed, disputed, rejected."@ru ;
+    rdfs:range xsd:string .
+
+sct:nSources a owl:DatatypeProperty ;
+    rdfs:label "число источников"@ru , "number of sources"@en ;
+    rdfs:range xsd:integer .
+
+sct:hasEvidence a owl:DatatypeProperty ;
+    rdfs:label "доказательство"@ru , "has evidence"@en ;
+    rdfs:comment "Ссылка на дословное доказательство (chunk_id) утверждения. Утверждение обязано иметь ≥1 доказательство."@ru ;
+    rdfs:range xsd:string .
+
+# --- Publication ---
+sct:doc_id a owl:DatatypeProperty ;
+    rdfs:label "ID документа"@ru , "document id"@en ;
+    rdfs:range xsd:string .
+
+sct:year a owl:DatatypeProperty ;
+    rdfs:label "год"@ru , "year"@en ;
+    rdfs:comment "Год публикации."@ru ;
+    rdfs:range xsd:integer .
+
+sct:sourceType a owl:DatatypeProperty ;
+    rdfs:label "тип источника"@ru , "source type"@en ;
+    rdfs:comment "Тип документа: review, article, report, presentation, patent, market_report, book, proceedings."@ru ;
+    rdfs:range xsd:string .
+
+sct:journal a owl:DatatypeProperty ;
+    rdfs:label "журнал"@ru , "journal"@en ;
+    rdfs:range xsd:string .
+
+sct:lang a owl:DatatypeProperty ;
+    rdfs:label "язык"@ru , "language"@en ;
+    rdfs:range xsd:string .
+
+sct:geography a owl:DatatypeProperty ;
+    rdfs:label "география"@ru , "geography"@en ;
+    rdfs:comment "Гео-принадлежность: RU, foreign, global."@ru ;
+    rdfs:range xsd:string .
+
+sct:domain a owl:DatatypeProperty ;
+    rdfs:label "домен"@ru , "domain"@en ;
+    rdfs:comment "Предметный домен: hydro, pyro, обогащение, экология, горное дело, водоочистка."@ru ;
+    rdfs:range xsd:string .
+
+sct:materialClass a owl:DatatypeProperty ;
+    rdfs:label "класс материала"@ru , "material class"@en ;
+    rdfs:comment "Класс материала: metal, ore, reagent, waste, solution."@ru ;
+    rdfs:range xsd:string .
+
+# --- провенанс (узлы и факты-рёбра, PLAN.md §2.2) ---
+sct:confidence a owl:DatatypeProperty ;
+    rdfs:label "уверенность"@ru , "confidence"@en ;
+    rdfs:comment "Числовая уверенность извлечения 0..1 (узла или факта-ребра)."@ru ;
+    rdfs:range xsd:double .
+
+sct:source_doc a owl:DatatypeProperty ;
+    rdfs:subPropertyOf prov:wasDerivedFrom ;
+    rdfs:label "исходный документ"@ru , "source document"@en ;
+    rdfs:comment "doc_id документа-источника факта."@ru ;
+    rdfs:range xsd:string .
+
+sct:chunk_id a owl:DatatypeProperty ;
+    rdfs:label "ID чанка"@ru , "chunk id"@en ;
+    rdfs:range xsd:string .
+
+sct:method a owl:DatatypeProperty ;
+    rdfs:label "метод извлечения"@ru , "extraction method"@en ;
+    rdfs:comment "Как получен факт: rule, llm, manual."@ru ;
+    rdfs:range xsd:string .
+
+sct:extractedAt a owl:DatatypeProperty ;
+    rdfs:subPropertyOf prov:generatedAtTime ;
+    rdfs:label "извлечено (дата)"@ru , "extracted at"@en ;
+    rdfs:range xsd:string .
+
+sct:createdBy a owl:DatatypeProperty ;
+    rdfs:subPropertyOf prov:wasAttributedTo ;
+    rdfs:label "создано кем"@ru , "created by"@en ;
+    rdfs:comment "pipeline или эксперт (для ручных правок)."@ru ;
+    rdfs:range xsd:string .

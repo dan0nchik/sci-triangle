@@ -41,7 +41,7 @@ except Exception as e:  # pragma: no cover
 # Multi-provider completion gateway (yandex / openai_compatible / mock via .env).
 try:
     from llm_gateway import gateway as _gateway  # type: ignore
-except Exception as e:  # pragma: no cover
+except Exception:  # pragma: no cover
     _gateway = None
 
 # Embeddings-Gateway: multi-space embedding (active space via env EMBEDDING_SPACE).

@@ -22,6 +22,7 @@ def clean_env(monkeypatch):
     # start each test from a known, provider-free env
     for k in list(__import__("os").environ):
         if k.startswith(("LLM_", "OPENROUTER_", "OPENAI_", "MOCKPROV_", "VLLM_",
+                         "OTHERPROV_", "GIGACHAT_", "GROQ_",
                          "MOCK_COMPLETION_TEXT")):
             monkeypatch.delenv(k, raising=False)
     G.reset_backends()
@@ -279,3 +280,139 @@ def test_complete_batch_mock(monkeypatch):
     assert len(res) == 5
     assert all(r and r["json"] == {"n": 0} for r in res)
     assert len(got) == 5
+
+
+# ------------------------------------------------ per-provider proxy + chains
+def test_per_provider_proxy_only_for_that_provider(monkeypatch):
+    monkeypatch.setenv("MOCKPROV_BASE_URL", "http://fake/v1")
+    monkeypatch.setenv("MOCKPROV_API_KEY", "k")
+    monkeypatch.setenv("MOCKPROV_MODEL", "m")
+    monkeypatch.setenv("MOCKPROV_PROXY", "http://user:pw@proxy.host:3128")
+    G.reset_backends()
+
+    seen = {}
+
+    def handler(url, **kw):
+        seen.update(kw)
+        return _FakeResp(200, _chat_payload("ok"))
+
+    _install_fake_requests(monkeypatch, handler)
+    b = G._get_backend("mockprov")
+    b.complete([{"role": "user", "text": "x"}], "m", 0.0, 10, None, False, 1)
+    assert seen["proxies"] == {"http": "http://user:pw@proxy.host:3128",
+                               "https": "http://user:pw@proxy.host:3128"}
+    # провайдер БЕЗ прокси не должен слать proxies (глобальный env не трогаем)
+    monkeypatch.setenv("OTHERPROV_BASE_URL", "http://fake2/v1")
+    monkeypatch.setenv("OTHERPROV_API_KEY", "k2")
+    G.reset_backends()
+    seen.clear()
+    b2 = G._get_backend("otherprov")
+    b2.complete([{"role": "user", "text": "x"}], "m", 0.0, 10, None, False, 1)
+    assert "proxies" not in seen
+
+
+def test_comma_separated_fallback_chain(monkeypatch):
+    monkeypatch.setenv("LLM_PROVIDER", "mockprov")
+    monkeypatch.setenv("MOCKPROV_BASE_URL", "http://fake/v1")
+    monkeypatch.setenv("MOCKPROV_API_KEY", "k")
+    monkeypatch.setenv("MOCKPROV_MODEL", "m")
+    monkeypatch.setenv("LLM_FALLBACK", "mockprov:m2, mock:backup")
+    G.reset_backends()
+    chain = G.gateway._resolve("synthesis", None)
+    names = [(b.name, m) for b, m in chain]
+    # same provider with a DIFFERENT model is allowed; exact dup would be dropped
+    assert names == [("mockprov", "m"), ("mockprov", "m2"), ("mock", "backup")]
+
+
+def test_prompt_schema_mode_no_response_format(monkeypatch):
+    monkeypatch.setenv("MOCKPROV_BASE_URL", "http://fake/v1")
+    monkeypatch.setenv("MOCKPROV_API_KEY", "k")
+    monkeypatch.setenv("MOCKPROV_JSON_SCHEMA", "prompt")
+    G.reset_backends()
+
+    bodies = []
+
+    def handler(url, **kw):
+        bodies.append(kw["json"])
+        return _FakeResp(200, _chat_payload('{"ok": true}'))
+
+    _install_fake_requests(monkeypatch, handler)
+    b = G._get_backend("mockprov")
+    schema = {"type": "object", "properties": {"ok": {"type": "boolean"}},
+              "required": ["ok"]}
+    r = b.complete([{"role": "user", "text": "x"}], "m", 0.0, 10, schema, True, 2)
+    assert r["json"] == {"ok": True}
+    assert "response_format" not in bodies[0]          # prompt-режим: без response_format
+    assert any("JSON-схеме" in m["content"] for m in bodies[0]["messages"]
+               if m["role"] == "system")                # но схема в промпте
+
+
+# ---------------------------------------------------------------- gigachat
+def test_gigachat_oauth_refresh_and_completion(monkeypatch):
+    monkeypatch.setenv("GIGACHAT_AUTH_KEY", "dGVzdDp0ZXN0")
+    G.reset_backends()
+
+    calls = {"oauth": 0, "chat": 0}
+
+    def handler(url, **kw):
+        if "oauth" in url:
+            calls["oauth"] += 1
+            assert kw["headers"]["Authorization"] == "Basic dGVzdDp0ZXN0"
+            assert "RqUID" in kw["headers"]
+            assert kw["data"] == {"scope": "GIGACHAT_API_B2B"}
+            return _FakeResp(200, {"access_token": f"tok{calls['oauth']}",
+                                   "expires_at": (__import__('time').time() + 1800) * 1000})
+        calls["chat"] += 1
+        assert kw["headers"]["Authorization"] == "Bearer tok1"
+        assert kw["verify"] is False
+        return _FakeResp(200, _chat_payload("Привет"))
+
+    _install_fake_requests(monkeypatch, handler)
+    b = G._get_backend("gigachat")
+    assert b.available()
+    assert b.schema_mode == "prompt"                    # дефолт для gigachat
+    r = b.complete([{"role": "user", "text": "x"}], "GigaChat-2", 0.0, 10, None, False, 1)
+    assert r["text"] == "Привет" and r["provider"] == "gigachat"
+    # второй вызов НЕ рефрешит токен (жив ещё ~30 мин)
+    b.complete([{"role": "user", "text": "y"}], "GigaChat-2", 0.0, 10, None, False, 1)
+    assert calls["oauth"] == 1 and calls["chat"] == 2
+
+
+def test_gigachat_expired_token_refreshes(monkeypatch):
+    monkeypatch.setenv("GIGACHAT_AUTH_KEY", "dGVzdDp0ZXN0")
+    G.reset_backends()
+    imported_time = __import__("time")
+
+    toks = []
+
+    def handler(url, **kw):
+        if "oauth" in url:
+            # токен, истекающий немедленно -> следующий вызов обязан рефрешить
+            return _FakeResp(200, {"access_token": f"t{len(toks)}",
+                                   "expires_at": imported_time.time() * 1000})
+        toks.append(kw["headers"]["Authorization"])
+        return _FakeResp(200, _chat_payload("ok"))
+
+    _install_fake_requests(monkeypatch, handler)
+    b = G._get_backend("gigachat")
+    b.complete([{"role": "user", "text": "a"}], "GigaChat-2", 0.0, 5, None, False, 1)
+    b.complete([{"role": "user", "text": "b"}], "GigaChat-2", 0.0, 5, None, False, 1)
+    assert toks[0] != toks[1]                           # токен обновился
+
+
+def test_http200_error_body_not_treated_as_success(monkeypatch):
+    """OpenRouter-стиль: HTTP 200 с {"error": ...} без choices -> ретрай/фолбэк."""
+    monkeypatch.setenv("LLM_PROVIDER", "mockprov")
+    monkeypatch.setenv("MOCKPROV_BASE_URL", "http://fake/v1")
+    monkeypatch.setenv("MOCKPROV_API_KEY", "k")
+    monkeypatch.setenv("MOCKPROV_MODEL", "m")
+    monkeypatch.setenv("LLM_FALLBACK", "mock:backup")
+    G.reset_backends()
+
+    def handler(url, **kw):
+        return _FakeResp(200, {"error": {"code": 429, "message": "upstream limited"}})
+
+    _install_fake_requests(monkeypatch, handler)
+    r = G.gateway.complete([{"role": "user", "text": "x"}], model_role="synthesis",
+                           max_retries=1)
+    assert r is not None and r["provider"] == "mock"   # цепочка дошла до фолбэка

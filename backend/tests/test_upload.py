@@ -6,7 +6,6 @@
     with the mock LLM, asserting stages, searchability and a valid graph fragment.
     Skipped when Neo4j / Elasticsearch are not reachable.
 """
-import io
 import os
 import sys
 import time

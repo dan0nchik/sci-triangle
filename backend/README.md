@@ -164,6 +164,10 @@ curl -s localhost:8000/api/audit/log
   LM Studio (`base_url` + `api_key` + модель). Structured output: нативный
   `response_format: json_schema` с автоматическим фолбэком на `json_object` + схема в
   промпте + валидация + 1 ретрай (для моделей без нативной поддержки).
+- **gigachat** — кастомный бэкенд GigaChat (Сбер): OAuth `GIGACHAT_AUTH_KEY` →
+  access_token на 30 мин с авто-рефрешем; API openai-подобный; structured output в
+  режиме `prompt` (схема в промпте + валидация). ВНИМАНИЕ: B2B-ключ без купленных
+  пакетов токенов → `402 Payment Required` на completion (balance пуст).
 - **mock** — детерминированные ответы по схеме (тесты и dev без ключей).
 
 ### Переменные окружения
@@ -175,14 +179,16 @@ curl -s localhost:8000/api/audit/log
 | `LLM_MODEL_SYNTHESIS` | То же для синтеза ответов |
 | `LLM_MODEL_EXTRACTION` | То же для LLM-экстракции знаний (pipeline) |
 | `LLM_MODEL_SUMMARIES` | То же для доменных сводок |
-| `LLM_FALLBACK[_<ROLE>]` | Опц. фолбэк-цепочка `"provider:model_id"`, если primary упал/недоступен |
+| `LLM_FALLBACK[_<ROLE>]` | Опц. фолбэк-цепочка через запятую: `"gigachat:GigaChat-2, openai:gpt-4o-mini"` |
 | `<PROVIDER>_BASE_URL` | База openai-совместимого API (у `openrouter`/`openai`/… есть дефолты) |
 | `<PROVIDER>_API_KEY` | Ключ провайдера |
 | `<PROVIDER>_MODEL` | Дефолт-модель провайдера (если роль без явной модели) |
-| `<PROVIDER>_JSON_SCHEMA` | `auto`(деф.)\|`native`\|`json_object`\|`none` — режим structured output |
+| `<PROVIDER>_JSON_SCHEMA` | `auto`(деф.)\|`native`\|`json_object`\|`prompt` — режим structured output |
 | `<PROVIDER>_MAX_CONCURRENCY` | Лимит конкурентности (деф. 4) |
 | `<PROVIDER>_TIMEOUT` | Таймаут запроса, с (деф. 90) |
 | `<PROVIDER>_REQUIRE_KEY` | `0` — ключ не нужен (локальные ollama/lmstudio/vllm) |
+| `<PROVIDER>_PROXY` | HTTP(S)-прокси ТОЛЬКО для вызовов этого провайдера (напр. `GROQ_PROXY`); глобальный `HTTPS_PROXY` не используем — ломает localhost |
+| `GIGACHAT_AUTH_KEY` / `GIGACHAT_SCOPE` | Авторизационный ключ GigaChat (base64) и scope (`GIGACHAT_API_B2B` деф.) |
 
 Резолюция роли: если задан `LLM_MODEL_<ROLE>` — используется он; иначе `LLM_PROVIDER`
 + дефолт-модель роли. Провайдеры можно **смешивать в одном процессе** (напр. планер на
@@ -201,6 +207,22 @@ OPENROUTER_MODEL=deepseek/deepseek-chat-v3
 Перезапустить uvicorn / раннер — всё. structured output подхватится автоматически
 (`OPENROUTER_JSON_SCHEMA=auto` пробует native, при 400 падает на json_object-фолбэк).
 
+### Боевая конфигурация на Groq (текущая, ключ проверен)
+
+```bash
+LLM_MODEL_PLANNER=groq:llama-3.1-8b-instant     # 14400 req/день, 6000 TPM, native json_schema
+LLM_MODEL_SYNTHESIS=groq:openai/gpt-oss-120b    # 1000 req/день, 8000 TPM, лучший русский
+LLM_MODEL_SUMMARIES=groq:openai/gpt-oss-120b
+LLM_FALLBACK=gigachat:GigaChat-2,openrouter:qwen/qwen3-next-80b-a3b-instruct:free,openai:gpt-4o-mini
+GROQ_API_KEY=... GROQ_PROXY=http://...:3128 GROQ_MAX_CONCURRENCY=2
+```
+Грабли (проверено вживую): `qwen/qwen3-32b` для синтеза НЕ годится — сжигает весь
+`max_tokens` на `<think>`-рассуждения и обрезает ответ; gpt-oss-120b пишет чисто.
+`judge_relevance` маршрутизируется через роль planner (reasoning-модели на 20 токенах
+возвращают пустой content → judge падал бы в fail-open). Маркеры цитат `【n】` от
+gpt-oss нормализуются в `[n]` (`synthesis._norm_cites`). `mock` в боевой фолбэк-цепочке
+НЕ используем: возврат `None` включает детерминированный template-фолбэк — честнее.
+
 Наблюдаемость: `GET /api/health → llm_usage` содержит `provider` и `by_provider`
 (разбивка токенов по провайдерам), `fallbacks`.
 
@@ -211,10 +233,11 @@ cd backend
 ../.venv-c/bin/python -m pytest tests -v
 ```
 
-Юнит-тесты шлюза (без живых ключей, mock-провайдер): structured output, json_object-
-фолбэк, пер-роль резолюция, деградация 4xx/5xx → фолбэк-цепочка, учёт токенов:
+Юнит-тесты шлюза (без живых ключей, mock-провайдер): structured output, json_object/
+prompt-фолбэки, пер-роль резолюция, деградация 4xx/5xx → фолбэк-цепочка (в т.ч. через
+запятую), пер-провайдерный прокси, OAuth-рефреш GigaChat, учёт токенов:
 ```bash
-../.venv-c/bin/python -m pytest shared/tests -v      # из корня репо; 13 passed
+../.venv-c/bin/python -m pytest shared/tests -v      # из корня репо; 18 passed
 ```
 
 Интеграционные тесты (пропускаются, если Neo4j недоступен): загрузка fixture,
