@@ -78,6 +78,23 @@ services:
       YANDEX_FOLDER_ID: "${YANDEX_FOLDER_ID:-}"
       OCR_API_URL: "${OCR_API_URL:-}"
       RU_PROXY: "${RU_PROXY:-}"
+      # LLM multi-provider gateway (см. shared/llm_gateway.py)
+      LLM_PROVIDER: "${LLM_PROVIDER:-yandex}"
+      LLM_MODEL_PLANNER: "${LLM_MODEL_PLANNER:-}"
+      LLM_MODEL_SYNTHESIS: "${LLM_MODEL_SYNTHESIS:-}"
+      LLM_MODEL_SUMMARIES: "${LLM_MODEL_SUMMARIES:-}"
+      LLM_MODEL_EXTRACTION: "${LLM_MODEL_EXTRACTION:-}"
+      LLM_FALLBACK: "${LLM_FALLBACK:-}"
+      GROQ_API_KEY: "${GROQ_API_KEY:-}"
+      GROQ_PROXY: "${GROQ_PROXY:-}"
+      OPENROUTER_API_KEY: "${OPENROUTER_API_KEY:-}"
+      OPENAI_API_KEY: "${OPENAI_API_KEY:-}"
+      GIGACHAT_AUTH_KEY: "${GIGACHAT_AUTH_KEY:-}"
+      # Эмбеддинг-пространство и загрузки
+      EMBEDDING_SPACE: "${EMBEDDING_SPACE:-yandex-256}"
+      EMBED_LOCAL_URL: "${EMBED_LOCAL_URL:-}"
+      UPLOADS_DIR: "/uploads"
+      UPLOADS_DB: "/uploads/uploads.sqlite"
     # Data artifacts are NOT baked into the image (code-only). Mount the
     # repo's corpus/ and graph/ read-only so runtime paths resolve
     # (chunk vectors: /graph/embeddings, analytics: /corpus/documents.jsonl)
@@ -85,6 +102,7 @@ services:
     volumes:
       - ../corpus:/corpus:ro
       - ../graph:/graph:ro
+      - uploads_data:/uploads
     depends_on:
       neo4j:
         condition: service_healthy
@@ -138,6 +156,7 @@ services:
 volumes:
   caddy_data:
   caddy_config:
+  uploads_data:
   neo4j_data:
   neo4j_logs:
   neo4j_plugins:

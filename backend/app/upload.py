@@ -46,8 +46,8 @@ from pipeline.ingest import textextract, chunker  # noqa: E402
 import es_indexer  # noqa: E402
 import loader  # noqa: E402
 
-UPLOADS_DIR = REPO_ROOT / "corpus" / "uploads"
-DB_PATH = BACKEND / "uploads.sqlite"
+UPLOADS_DIR = Path(os.environ.get("UPLOADS_DIR", str(REPO_ROOT / "corpus" / "uploads")))
+DB_PATH = Path(os.environ.get("UPLOADS_DB", str(BACKEND / "uploads.sqlite")))
 
 SUPPORTED_EXT = {".pdf", ".docx", ".docm", ".doc", ".pptx", ".xlsx", ".xls"}
 
