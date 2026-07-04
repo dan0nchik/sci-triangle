@@ -24,6 +24,8 @@ RUN pip install --no-cache-dir -r /app/requirements.txt
 COPY backend/ /app/
 # shared/ is imported by some code paths (yandex_client etc.) — optional.
 COPY shared/ /app/shared/
+# pipeline/ is imported by app/upload.py (ingest textextract/chunker, extract runner).
+COPY pipeline/ /app/pipeline/
 
 EXPOSE 8000
 
