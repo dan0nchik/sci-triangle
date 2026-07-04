@@ -1,0 +1,9 @@
+{
+	email danik.khromov@icloud.com
+}
+
+# Публичный HTTPS-домен демо (sslip.io резолвится в IP сервера).
+158-255-4-151.sslip.io {
+	reverse_proxy nginx:80
+	encode gzip
+}

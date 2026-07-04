@@ -120,7 +120,24 @@ services:
     mem_limit: 128m
     restart: unless-stopped
 
+  caddy:
+    image: caddy:2-alpine
+    container_name: sci-tangle-caddy
+    ports:
+      - "443:443"
+      - "443:443/udp"
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy_data:/data
+      - caddy_config:/config
+    depends_on:
+      - nginx
+    mem_limit: 128m
+    restart: unless-stopped
+
 volumes:
+  caddy_data:
+  caddy_config:
   neo4j_data:
   neo4j_logs:
   neo4j_plugins:
