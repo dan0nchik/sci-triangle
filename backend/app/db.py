@@ -3,6 +3,7 @@ from __future__ import annotations
 
 import json
 import sys
+import time
 from pathlib import Path
 from typing import Any, Dict, List, Optional
 
@@ -112,7 +113,24 @@ def _rel_dict(r) -> Dict[str, Any]:
     }
 
 
+# Обзор и статистика считаются по всему графу (после ночной пересборки —
+# 44k+ узлов): под параллельными заходами жюри каждый вызов degree-скана
+# складывался в минутные очереди и вешал api. Результат меняется только при
+# перезаливке графа, поэтому короткий in-memory TTL-кэш безопасен.
+_OVERVIEW_TTL_S = 600
+_overview_cache: Dict[int, tuple] = {}  # limit -> (monotonic_ts, payload)
+
+
 def overview(limit: int = 300) -> Dict[str, Any]:
+    cached = _overview_cache.get(limit)
+    if cached and (time.monotonic() - cached[0]) < _OVERVIEW_TTL_S:
+        return cached[1]
+    result = _overview_uncached(limit)
+    _overview_cache[limit] = (time.monotonic(), result)
+    return result
+
+
+def _overview_uncached(limit: int = 300) -> Dict[str, Any]:
     # Якоря обзора — самые связные концептные узлы. Листовые Measurement/
     # Condition исключены: после массовой экстракции их большинство в порядке
     # хранения, и «первые N рёбер» вытесняли Process/Material из выборки
@@ -270,7 +288,19 @@ def get_document(doc_id: str) -> Optional[Dict[str, Any]]:
 
 
 # ---------------------------------------------------------------- analytics
+_stats_cache: Dict[str, tuple] = {}  # "stats" -> (monotonic_ts, payload)
+
+
 def graph_stats() -> Dict[str, Any]:
+    cached = _stats_cache.get("stats")
+    if cached and (time.monotonic() - cached[0]) < _OVERVIEW_TTL_S:
+        return cached[1]
+    result = _graph_stats_uncached()
+    _stats_cache["stats"] = (time.monotonic(), result)
+    return result
+
+
+def _graph_stats_uncached() -> Dict[str, Any]:
     out: Dict[str, Any] = {}
     with driver().session() as s:
         out["n_nodes"] = s.run("MATCH (n:Entity) RETURN count(n) AS c").single()["c"]
